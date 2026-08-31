@@ -2,6 +2,7 @@ import "server-only";
 
 import { OpenAIDocumentAnalysisProvider } from "@/server/ai/openai";
 import type { DocumentAnalysisProvider } from "@/server/ai/types";
+import { isExplicitCiE2EEnvironment } from "@/server/testing/environment";
 
 export class AnalysisConfigurationError extends Error {
   readonly code = "AI_NOT_CONFIGURED";
@@ -57,10 +58,13 @@ class IntegrationTestAnalysisProvider implements DocumentAnalysisProvider {
 }
 
 export function getDocumentAnalysisProvider(): DocumentAnalysisProvider {
+  const isExplicitIntegrationEnvironment =
+    process.env.CIVORA_INTEGRATION_TESTS === "true" &&
+    (process.env.NODE_ENV !== "production" || isExplicitCiE2EEnvironment());
+
   if (
     process.env.CIVORA_AI_DRIVER === "integration-test" &&
-    process.env.CIVORA_INTEGRATION_TESTS === "true" &&
-    process.env.NODE_ENV !== "production"
+    isExplicitIntegrationEnvironment
   ) {
     return new IntegrationTestAnalysisProvider();
   }

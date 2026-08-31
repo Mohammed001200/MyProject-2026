@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { LocalPrivateDocumentStorage } from "@/server/storage/local";
 import type { DocumentStorage } from "@/server/storage/types";
+import { isExplicitCiE2EEnvironment } from "@/server/testing/environment";
 
 let storageInstance: DocumentStorage | undefined;
 
@@ -21,7 +22,7 @@ export function getDocumentStorage(): DocumentStorage {
   if (driver !== "local") {
     throw new Error(`Unsupported document storage driver: ${driver}`);
   }
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV === "production" && !isExplicitCiE2EEnvironment()) {
     throw new Error(
       "Local document storage is forbidden in production; configure a private durable adapter.",
     );

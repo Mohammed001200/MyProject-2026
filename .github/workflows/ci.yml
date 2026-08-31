@@ -168,6 +168,9 @@ jobs:
       - name: Apply migrations to isolated PostgreSQL
         run: pnpm db:deploy
 
+      - name: Build production application
+        run: pnpm build
+
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
 

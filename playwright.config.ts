@@ -5,7 +5,8 @@ export default defineConfig({
   fullyParallel: true,
   workers: 2,
   forbidOnly: true,
-  retries: process.env.CI ? 2 : 0,
+  retries:
+    process.env.CIVORA_E2E_DATABASE === "true" ? 0 : process.env.CI ? 2 : 0,
   reporter: process.env.CI ? "github" : "list",
   use: {
     baseURL: "http://127.0.0.1:3000",
@@ -29,10 +30,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command:
-      process.env.CIVORA_E2E_DATABASE === "true"
-        ? "corepack pnpm dev"
-        : "corepack pnpm start",
+    command: "corepack pnpm start",
     url: "http://127.0.0.1:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
