@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useState, useSyncExternalStore } from "react";
 import { authClient } from "@/lib/auth-client";
 
 type AuthMode = "sign-in" | "sign-up";
@@ -25,6 +25,10 @@ type FormState =
   | { kind: "error"; message: string }
   | { kind: "success"; message: string };
 
+const subscribeToHydration = () => () => {};
+const getHydratedSnapshot = () => true;
+const getServerHydratedSnapshot = () => false;
+
 function unavailableMessage(availability: Availability) {
   if (availability === "invalid") {
     return "Sign-in is paused because this environment needs an authentication configuration fix.";
@@ -39,6 +43,11 @@ export function AuthForm({
   accountCreated = false,
 }: AuthFormProps) {
   const router = useRouter();
+  const hydrated = useSyncExternalStore(
+    subscribeToHydration,
+    getHydratedSnapshot,
+    getServerHydratedSnapshot,
+  );
   const [pending, setPending] = useState(false);
   const [formState, setFormState] = useState<FormState>(
     accountCreated
@@ -51,10 +60,11 @@ export function AuthForm({
 
   const isSignUp = mode === "sign-up";
   const enabled = availability === "ready";
+  const interactive = enabled && hydrated;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!enabled || pending) return;
+    if (!interactive || pending) return;
 
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email") ?? "").trim();
@@ -184,7 +194,7 @@ export function AuthForm({
               autoComplete="name"
               required
               minLength={2}
-              disabled={!enabled || pending}
+              disabled={!interactive || pending}
               className="h-13 rounded-xl border border-line-strong bg-surface px-4 text-base font-medium text-ink shadow-sm outline-none transition placeholder:text-ink-faint focus:border-brand disabled:cursor-not-allowed disabled:opacity-55"
               placeholder="Your name"
             />
@@ -203,7 +213,7 @@ export function AuthForm({
             inputMode="email"
             autoComplete="email"
             required
-            disabled={!enabled || pending}
+            disabled={!interactive || pending}
             className="h-13 rounded-xl border border-line-strong bg-surface px-4 text-base font-medium text-ink shadow-sm outline-none transition placeholder:text-ink-faint focus:border-brand disabled:cursor-not-allowed disabled:opacity-55"
             placeholder="you@example.com"
           />
@@ -229,7 +239,7 @@ export function AuthForm({
             required
             minLength={12}
             maxLength={128}
-            disabled={!enabled || pending}
+            disabled={!interactive || pending}
             className="h-13 rounded-xl border border-line-strong bg-surface px-4 text-base font-medium text-ink shadow-sm outline-none transition placeholder:text-ink-faint focus:border-brand disabled:cursor-not-allowed disabled:opacity-55"
             placeholder="••••••••••••"
           />
@@ -249,7 +259,7 @@ export function AuthForm({
               required
               minLength={12}
               maxLength={128}
-              disabled={!enabled || pending}
+              disabled={!interactive || pending}
               className="h-13 rounded-xl border border-line-strong bg-surface px-4 text-base font-medium text-ink shadow-sm outline-none transition placeholder:text-ink-faint focus:border-brand disabled:cursor-not-allowed disabled:opacity-55"
               placeholder="••••••••••••"
             />
@@ -258,7 +268,7 @@ export function AuthForm({
 
         <button
           type="submit"
-          disabled={!enabled || pending}
+          disabled={!interactive || pending}
           className="mt-1 inline-flex min-h-13 items-center justify-center gap-2 rounded-full bg-brand-strong px-6 text-sm font-extrabold text-white shadow-[0_14px_34px_rgba(15,80,69,0.22)] transition hover:-translate-y-0.5 hover:bg-brand disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
         >
           {pending ? (
