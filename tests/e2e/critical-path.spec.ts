@@ -97,33 +97,40 @@ test.describe("authenticated critical path", () => {
       page.getByRole("link", { name: "Download source" }),
     ).toHaveAttribute("href", `/api/documents/${upload.documentId}/source`);
 
-    const documentResponse = await page.request.get(
-      `/api/documents/${upload.documentId}`,
-    );
-    expect(documentResponse.status()).toBe(200);
-    const document = (await documentResponse.json()) as {
-      actions: Array<{ id: string; sourcePageNumber: number }>;
-      status: string;
-    };
+    const documentResponse = await page.evaluate(async (documentId) => {
+      const response = await fetch(`/api/documents/${documentId}`);
+      return {
+        status: response.status,
+        body: (await response.json()) as {
+          actions: Array<{ id: string; sourcePageNumber: number }>;
+          status: string;
+        },
+      };
+    }, upload.documentId);
+    expect(documentResponse.status).toBe(200);
+    const document = documentResponse.body;
     expect(document.status).toBe("READY");
     expect(document.actions).toHaveLength(1);
     expect(document.actions[0]?.sourcePageNumber).toBe(1);
     const actionId = document.actions[0]!.id;
 
-    const sourceResponse = await page.request.get(
-      `/api/documents/${upload.documentId}/source`,
-    );
-    expect(sourceResponse.status()).toBe(200);
-    expect(sourceResponse.headers()["content-type"]).toContain(
-      "application/pdf",
-    );
-    expect(sourceResponse.headers()["cache-control"]).toContain("no-store");
-    expect(sourceResponse.headers()["content-disposition"]).toContain(
-      "attachment",
-    );
-    expect((await sourceResponse.body()).subarray(0, 5).toString()).toBe(
-      "%PDF-",
-    );
+    const sourceResponse = await page.evaluate(async (documentId) => {
+      const response = await fetch(`/api/documents/${documentId}/source`);
+      return {
+        status: response.status,
+        contentType: response.headers.get("content-type"),
+        cacheControl: response.headers.get("cache-control"),
+        contentDisposition: response.headers.get("content-disposition"),
+        prefix: Array.from(
+          new Uint8Array(await response.arrayBuffer()).subarray(0, 5),
+        ),
+      };
+    }, upload.documentId);
+    expect(sourceResponse.status).toBe(200);
+    expect(sourceResponse.contentType).toContain("application/pdf");
+    expect(sourceResponse.cacheControl).toContain("no-store");
+    expect(sourceResponse.contentDisposition).toContain("attachment");
+    expect(String.fromCharCode(...sourceResponse.prefix)).toBe("%PDF-");
 
     const outsiderContext = await browser.newContext();
     try {
@@ -132,25 +139,22 @@ test.describe("authenticated critical path", () => {
         email: `outsider-${runId}@example.test`,
         name: "Outside User",
       });
-      expect(
-        (
-          await outsiderPage.request.get(`/api/documents/${upload.documentId}`)
-        ).status(),
-      ).toBe(404);
-      expect(
-        (
-          await outsiderPage.request.get(
-            `/api/documents/${upload.documentId}/source`,
-          )
-        ).status(),
-      ).toBe(404);
-      expect(
-        (
-          await outsiderPage.request.patch(`/api/actions/${actionId}`, {
-            data: { status: "COMPLETED" },
-          })
-        ).status(),
-      ).toBe(404);
+      const outsiderStatuses = await outsiderPage.evaluate(
+        async ({ documentId, actionId }) => {
+          const [document, source, action] = await Promise.all([
+            fetch(`/api/documents/${documentId}`),
+            fetch(`/api/documents/${documentId}/source`),
+            fetch(`/api/actions/${actionId}`, {
+              method: "PATCH",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ status: "COMPLETED" }),
+            }),
+          ]);
+          return [document.status, source.status, action.status];
+        },
+        { documentId: upload.documentId, actionId },
+      );
+      expect(outsiderStatuses).toEqual([404, 404, 404]);
     } finally {
       await outsiderContext.close();
     }
