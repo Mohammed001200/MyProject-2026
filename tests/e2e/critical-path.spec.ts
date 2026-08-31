@@ -19,7 +19,9 @@ async function createAccountAndOnboard(
   await page.getByRole("button", { name: "Sign in" }).click();
 
   await expect(page).toHaveURL(/\/onboarding$/);
-  await page.getByRole("radio", { name: /Simple/ }).check();
+  const simpleStyle = page.getByRole("radio", { name: /Simple/ });
+  await page.getByText("Simple", { exact: true }).click();
+  await expect(simpleStyle).toBeChecked();
   await page.getByRole("button", { name: "Enter my workspace" }).click();
   await expect(page).toHaveURL(/\/workspace$/);
 }
