@@ -21,12 +21,13 @@ This file records implementation truth. A checked item is backed by running code
 
 ## Milestone 2 — real identity and workspace foundation
 
-- [ ] PostgreSQL development environment and stable Prisma 7 schema/migrations.
-- [ ] Mature auth integration, secure sessions, signup/login/logout, verification/recovery where applicable.
-- [ ] `User`, `Profile`, `Workspace`, and `WorkspaceMember` with automatic personal workspace creation.
-- [ ] Central `requireUser`, `requireWorkspace`, and record authorization policies.
-- [ ] Short onboarding with language, explanation, and first-upload CTA.
-- [ ] Integration tests for unauthenticated rejection and cross-workspace isolation.
+- [x] Validated Prisma 7 PostgreSQL schema and baseline migration with relational constraints.
+- [x] Better Auth signup, login, logout, safe disabled state, and server sessions; verification/recovery awaits an email provider.
+- [x] `User`, `Profile`, `Workspace`, and `WorkspaceMember` with idempotent personal-workspace creation.
+- [x] Central viewer, workspace, document, and action authorization policies with non-enumerating failures.
+- [x] Persisted onboarding for language, time zone, and explanation style plus protected workspace route.
+- [x] Isolated PostgreSQL CI coverage for migration, auth, workspace idempotency, constraints, and tenant denial.
+- [ ] Run the same integration suite locally once PostgreSQL is available.
 
 ## Milestone 3 — real document-to-action vertical slice (MVP core)
 
@@ -65,3 +66,4 @@ CIVORA Family, email ingestion, calendar providers, contract-change detection, s
 ## Progress log
 
 - **2026-08-31 — Foundation started:** repository verified and isolated on `codex/civora-foundation`; official Next.js scaffold established; original visual system, marketing experience, application preview surfaces, core documentation, file policy, prioritization logic, and first unit tests created. External credentials are not needed for this milestone and no real-user functionality is claimed.
+- **2026-08-31 — Identity foundation:** Prisma migration, Better Auth, automatic personal workspaces, persisted onboarding, protected workspace UI, authorization policies, and PostgreSQL-backed CI tests implemented. Local PostgreSQL and production credentials remain external blockers.

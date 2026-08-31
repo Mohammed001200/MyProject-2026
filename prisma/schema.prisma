@@ -1,0 +1,366 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum WorkspaceKind {
+  PERSONAL
+  HOUSEHOLD
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum ExplanationStyle {
+  SIMPLE
+  BALANCED
+  DETAILED
+}
+
+enum DocumentStatus {
+  UPLOADED
+  QUEUED
+  PROCESSING
+  READY
+  NEEDS_REVIEW
+  FAILED
+}
+
+enum DocumentCategory {
+  GOVERNMENT
+  FINANCE
+  INSURANCE
+  HOUSING
+  EMPLOYMENT
+  EDUCATION
+  HEALTH_ADMIN
+  CONTRACT
+  INVOICE
+  OTHER
+}
+
+enum AnalysisStatus {
+  PROCESSING
+  READY
+  NEEDS_REVIEW
+  FAILED
+}
+
+enum Importance {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum ActionStatus {
+  OPEN
+  COMPLETED
+  DISMISSED
+}
+
+enum ActionPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum FinancialItemType {
+  INVOICE
+  PAYMENT
+  RENEWAL
+  RECURRING_COST
+  OTHER
+}
+
+model User {
+  id            String    @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
+  name          String
+  email         String
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+
+  profile           Profile?
+  memberships       WorkspaceMember[]
+  uploadedDocuments Document[]        @relation("UploadedDocuments")
+  createdActions    ActionItem[]      @relation("CreatedActions")
+  auditEvents       AuditEvent[]      @relation("AuditActor")
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
+  issuer                String
+  accountId             String
+  providerId            String
+  userId                String    @db.Uuid
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([issuer, accountId], map: "account_issuer_accountId_uidx")
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@index([expiresAt])
+  @@map("verification")
+}
+
+model Profile {
+  id               String           @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
+  userId           String           @unique @db.Uuid
+  preferredLocale  String           @default("en") @db.VarChar(12)
+  timezone         String           @default("UTC") @db.VarChar(64)
+  explanationStyle ExplanationStyle @default(BALANCED)
+  onboardingStep   Int              @default(0)
+  onboardingDone   Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profile")
+}
+
+model Workspace {
+  id        String        @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
+  name      String
+  slug      String        @unique
+  kind      WorkspaceKind @default(PERSONAL)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  members     WorkspaceMember[]
+  documents   Document[]
+  actions     ActionItem[]
+  auditEvents AuditEvent[]
+
+  @@map("workspace")
+}
+
+model WorkspaceMember {
+  id          String        @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
+  workspaceId String        @db.Uuid
+  userId      String        @db.Uuid
+  role        WorkspaceRole @default(MEMBER)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@map("workspace_member")
+}
+
+model Document {
+  id               String           @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
+  workspaceId      String           @db.Uuid
+  uploadedById     String           @db.Uuid
+  title            String
+  originalFileName String
+  status           DocumentStatus   @default(UPLOADED)
+  category         DocumentCategory @default(OTHER)
+  organizationName String?
+  documentDate     DateTime?
+  sourceDateText   String?
+  language         String?          @db.VarChar(16)
+  requiresAction   Boolean          @default(false)
+  failureCode      String?
+  failureMessage   String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  deletedAt        DateTime?
+
+  workspace  Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  uploadedBy User               @relation("UploadedDocuments", fields: [uploadedById], references: [id], onDelete: Restrict)
+  file       DocumentFile?
+  analyses   DocumentAnalysis[]
+  actions    ActionItem[]
+
+  @@index([workspaceId, status, createdAt(sort: Desc)])
+  @@index([workspaceId, category, documentDate(sort: Desc)])
+  @@index([uploadedById])
+  @@map("document")
+}
+
+model DocumentFile {
+  id               String   @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
+  documentId       String   @unique @db.Uuid
+  storageProvider  String   @db.VarChar(32)
+  objectKey        String   @unique
+  verifiedMimeType String   @db.VarChar(128)
+  extension        String   @db.VarChar(12)
+  sizeBytes        BigInt
+  sha256           String   @db.VarChar(64)
+  createdAt        DateTime @default(now())
+  document         Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([sha256])
+  @@map("document_file")
+}
+
+model DocumentAnalysis {
+  id                String            @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
+  documentId        String            @db.Uuid
+  version           Int
+  status            AnalysisStatus    @default(PROCESSING)
+  provider          String            @db.VarChar(64)
+  model             String            @db.VarChar(128)
+  schemaVersion     String            @db.VarChar(32)
+  promptVersion     String            @db.VarChar(32)
+  summary           String?
+  simpleExplanation String?
+  detectedLanguage  String?           @db.VarChar(16)
+  importance        Importance        @default(NORMAL)
+  confidence        Decimal?          @db.Decimal(4, 3)
+  warnings          Json?
+  normalizedPayload Json?
+  inputTokens       Int?
+  outputTokens      Int?
+  startedAt         DateTime          @default(now())
+  completedAt       DateTime?
+  document          Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  entities          ExtractedEntity[]
+  financialItems    FinancialItem[]
+  actions           ActionItem[]
+
+  @@unique([documentId, version])
+  @@index([documentId, status])
+  @@map("document_analysis")
+}
+
+model ExtractedEntity {
+  id              String           @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
+  analysisId      String           @db.Uuid
+  type            String           @db.VarChar(64)
+  label           String
+  value           String
+  normalizedValue String?
+  confidence      Decimal?         @db.Decimal(4, 3)
+  pageNumber      Int?
+  sourceText      String?
+  createdAt       DateTime         @default(now())
+  analysis        DocumentAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  @@index([analysisId, type])
+  @@map("extracted_entity")
+}
+
+model FinancialItem {
+  id          String            @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
+  analysisId  String            @db.Uuid
+  type        FinancialItemType
+  amountMinor BigInt
+  currency    String            @db.VarChar(3)
+  dueAt       DateTime?
+  confidence  Decimal?          @db.Decimal(4, 3)
+  pageNumber  Int?
+  sourceText  String?
+  createdAt   DateTime          @default(now())
+  analysis    DocumentAnalysis  @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  @@index([analysisId])
+  @@index([currency, dueAt])
+  @@map("financial_item")
+}
+
+model ActionItem {
+  id               String         @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
+  workspaceId      String         @db.Uuid
+  createdById      String?        @db.Uuid
+  sourceDocumentId String?        @db.Uuid
+  sourceAnalysisId String?        @db.Uuid
+  title            String
+  description      String?
+  status           ActionStatus   @default(OPEN)
+  priority         ActionPriority @default(NORMAL)
+  dueAt            DateTime?
+  dueDateIsAllDay  Boolean        @default(true)
+  sourceDateText   String?
+  completedAt      DateTime?
+  dismissedAt      DateTime?
+  confidence       Decimal?       @db.Decimal(4, 3)
+  generationReason String?
+  generationKey    String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  workspace      Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy      User?             @relation("CreatedActions", fields: [createdById], references: [id], onDelete: SetNull)
+  sourceDocument Document?         @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+  sourceAnalysis DocumentAnalysis? @relation(fields: [sourceAnalysisId], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, generationKey])
+  @@index([workspaceId, status, dueAt])
+  @@index([sourceDocumentId])
+  @@index([sourceAnalysisId])
+  @@index([createdById])
+  @@map("action_item")
+}
+
+model AuditEvent {
+  id          String     @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
+  workspaceId String?    @db.Uuid
+  actorUserId String?    @db.Uuid
+  eventType   String     @db.VarChar(96)
+  entityType  String?    @db.VarChar(64)
+  entityId    String?
+  requestId   String?    @db.VarChar(96)
+  metadata    Json?
+  createdAt   DateTime   @default(now())
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  actor       User?      @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@index([actorUserId, createdAt(sort: Desc)])
+  @@index([eventType, createdAt(sort: Desc)])
+  @@map("audit_event")
+}

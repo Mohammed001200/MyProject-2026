@@ -37,7 +37,7 @@ export function MarketingHeader() {
         <div className="hidden items-center gap-2 md:flex">
           <ThemeToggle />
           <Link
-            href="/app/today"
+            href="/auth/sign-in"
             className="inline-flex min-h-10 items-center rounded-full px-4 text-sm font-bold text-ink-soft no-underline transition hover:bg-canvas-soft hover:text-ink"
           >
             Sign in
@@ -79,8 +79,14 @@ export function MarketingHeader() {
               </a>
             ))}
             <Link
+              href="/auth/sign-in"
+              className="mt-3 inline-flex min-h-12 items-center justify-center rounded-full border border-line-strong px-5 text-sm font-bold text-ink no-underline"
+            >
+              Sign in
+            </Link>
+            <Link
               href="/app/today"
-              className="mt-3 inline-flex min-h-12 items-center justify-center rounded-full bg-brand-strong px-5 text-sm font-bold text-white no-underline"
+              className="inline-flex min-h-12 items-center justify-center rounded-full bg-brand-strong px-5 text-sm font-bold text-white no-underline"
             >
               Open product preview
             </Link>

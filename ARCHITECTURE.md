@@ -4,7 +4,7 @@
 
 ## Implementation snapshot — 2026-08-31
 
-The repository currently runs Next.js 16.3.3, React 19.2.8, strict TypeScript 5.9, Tailwind CSS 4.3, Vitest 4, and the official Next ESLint configuration on Node 22.19. The visible product is a clearly labeled fictional preview; there is no authentication, database, object storage, background worker, live AI request, or billing path yet. Prisma 7, Better Auth, the OpenAI SDK, and provider adapters remain target decisions until their real vertical slice is implemented and tested.
+The repository currently runs Next.js 16.3.3, React 19.2.8, strict TypeScript 5.9, Tailwind CSS 4.3, Prisma 7.10, Better Auth 1.7, Vitest 4, and Playwright on Node 22.19. Identity, PostgreSQL tenancy, onboarding, and authorization foundations are implemented, with real database execution delegated to CI until local PostgreSQL is configured. The visible `/app/*` product remains a clearly labeled fictional preview; private storage, background processing, and live AI requests are not yet enabled.
 
 ## Architectural goals
 

@@ -34,6 +34,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate typed database client
+        run: pnpm db:generate
+        env:
+          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/civora
+
       - name: Lint
         run: pnpm lint
 
@@ -60,3 +65,51 @@ jobs:
           path: playwright-report/
           if-no-files-found: ignore
           retention-days: 7
+
+  database-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18.6-alpine
+        env:
+          POSTGRES_USER: civora_test
+          POSTGRES_PASSWORD: civora_test
+          POSTGRES_DB: civora_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U civora_test -d civora_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://civora_test:civora_test@127.0.0.1:5432/civora_test
+      BETTER_AUTH_SECRET: ci-only-better-auth-secret-not-used-outside-tests
+      BETTER_AUTH_URL: http://127.0.0.1:3000
+      CIVORA_INTEGRATION_TESTS: "true"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+
+      - name: Enable locked pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.24.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate typed database client
+        run: pnpm db:generate
+
+      - name: Apply migrations to isolated PostgreSQL
+        run: pnpm db:deploy
+
+      - name: Run identity and tenant integration tests
+        run: pnpm test:integration

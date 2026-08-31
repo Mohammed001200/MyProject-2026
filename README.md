@@ -2,7 +2,7 @@
 
 CIVORA is a personal life-administration product that turns important documents into clear explanations, trusted deadlines, and useful actions.
 
-> **Current status:** active founding build. The marketing experience, responsive application shell, Today, document library/detail, upload-state, actions, settings, and grounded-AI surfaces are implemented as an explicitly labeled fictional product preview. Authentication, persistent user data, private object storage, and live AI analysis are not yet enabled. Do not upload real personal information.
+> **Current status:** active founding build. The marketing and application surfaces remain an explicitly labeled fictional preview. The PostgreSQL schema/migration, Better Auth boundary, personal-workspace bootstrap, onboarding persistence, and protected workspace route are implemented; activation still requires PostgreSQL and server secrets. Private file storage and live AI analysis are not yet enabled. Do not upload real personal information.
 
 ## Run locally
 
@@ -40,13 +40,13 @@ src/lib/                  Narrow cross-feature utilities
 public/                   Static public assets only
 ```
 
-Server-only auth, database, storage, job, and AI modules will live under `src/server/` as their real vertical slices are introduced. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the target system and [ROADMAP.md](./ROADMAP.md) for implementation truth.
+Server-only auth, database, storage, job, and AI boundaries live under `src/server/`. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the target system and [ROADMAP.md](./ROADMAP.md) for implementation truth.
 
 ## Environment
 
-Copy `.env.example` to `.env.local` only when a milestone needs external configuration. Never commit `.env*` files other than `.env.example`, and never place server secrets in `NEXT_PUBLIC_*` variables.
+Copy `.env.example` to `.env` only when a milestone needs external configuration. Never commit `.env*` files other than `.env.example`, and never place server secrets in `NEXT_PUBLIC_*` variables.
 
-The current preview needs no credentials. PostgreSQL, authentication, OpenAI, private object storage, and Stripe variables are documented ahead of their integration boundaries; an empty variable does not mean that integration works.
+The preview needs no credentials. To activate real signup/onboarding, configure `DATABASE_URL`, a 32+ character `BETTER_AUTH_SECRET`, and `BETTER_AUTH_URL`, then run `corepack pnpm db:generate` and `corepack pnpm db:deploy`. This machine has no PostgreSQL service, so the migration and real auth/tenant flow run in the isolated PostgreSQL CI job.
 
 ## Product and security
 

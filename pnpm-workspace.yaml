@@ -1,5 +1,10 @@
 allowBuilds:
+  "@prisma/engines": true
+  esbuild: true
+  prisma: true
   sharp: false
   unrs-resolver: false
 minimumReleaseAgeExclude:
   - lucide-react@1.38.0
+overrides:
+  deepmerge-ts: 8.0.2
