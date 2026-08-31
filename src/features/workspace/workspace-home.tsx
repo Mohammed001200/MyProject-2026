@@ -4,6 +4,7 @@ import {
   Database,
   Fingerprint,
   SlidersHorizontal,
+  Upload,
 } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -67,10 +68,18 @@ export function WorkspaceHome({
               remains closed until private storage and authorization tests are
               complete.
             </p>
-            <ButtonLink href="/app/today" className="mt-8 min-h-13 px-6">
-              Explore the fictional product preview
-              <ArrowRight className="h-4 w-4" />
-            </ButtonLink>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <ButtonLink href="/workspace/upload" className="min-h-13 px-6">
+                Add a real document <Upload className="h-4 w-4" />
+              </ButtonLink>
+              <ButtonLink
+                href="/workspace/today"
+                tone="secondary"
+                className="min-h-13 px-6"
+              >
+                Open Today <ArrowRight className="h-4 w-4" />
+              </ButtonLink>
+            </div>
           </div>
 
           <div className="border-y border-line bg-surface/65 px-5 py-2 sm:px-6">
@@ -97,9 +106,9 @@ export function WorkspaceHome({
       <section className="mx-auto max-w-[1180px] px-5 py-12 sm:px-8">
         <p className="eyebrow text-ink-faint">Next engineering gate</p>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-ink-soft">
-          Authenticated upload, private object storage, byte-level validation,
-          and cross-workspace denial tests must pass before this surface accepts
-          personal documents.
+          The authenticated upload path validates bytes and tenant access. Use
+          non-sensitive test files until durable production storage, retention,
+          and deployment security audits are complete.
         </p>
       </section>
     </main>

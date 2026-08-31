@@ -76,7 +76,15 @@ export async function requireDocumentAccess(
         },
       },
     },
-    include: { file: true },
+    include: {
+      file: true,
+      analyses: {
+        orderBy: { version: "desc" },
+        take: 1,
+        include: { entities: true },
+      },
+      actions: { orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }] },
+    },
   });
 
   if (!document) throw new PrivateResourceNotFoundError();

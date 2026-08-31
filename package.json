@@ -39,6 +39,7 @@
     "dotenv": "^17.4.2",
     "lucide-react": "^1.38.0",
     "next": "16.3.3",
+    "openai": "^7.8.0",
     "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
@@ -47,8 +48,8 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
     "@playwright/test": "^1.62.1",
+    "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^22",
@@ -63,8 +64,8 @@
     "prettier": "^3.9.6",
     "prisma": "7.10.0",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5.9.3",
     "tsx": "^4.23.13",
+    "typescript": "^5.9.3",
     "vitest": "^4.1.11"
   },
   "packageManager": "pnpm@11.24.0"

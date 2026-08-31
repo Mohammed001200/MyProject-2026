@@ -28,7 +28,7 @@ export function validateDocumentCandidate(
     return {
       ok: false,
       code: "TOO_LARGE",
-      message: "The preview limit is 10 MB.",
+      message: "The upload limit is 10 MB.",
     };
   }
 

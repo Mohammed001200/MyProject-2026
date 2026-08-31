@@ -81,6 +81,14 @@ enum FinancialItemType {
   OTHER
 }
 
+enum DocumentJobStatus {
+  QUEUED
+  PROCESSING
+  RETRY
+  READY
+  FAILED
+}
+
 model User {
   id            String    @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
   name          String
@@ -222,6 +230,7 @@ model Document {
   workspace  Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   uploadedBy User               @relation("UploadedDocuments", fields: [uploadedById], references: [id], onDelete: Restrict)
   file       DocumentFile?
+  job        DocumentJob?
   analyses   DocumentAnalysis[]
   actions    ActionItem[]
 
@@ -229,6 +238,24 @@ model Document {
   @@index([workspaceId, category, documentDate(sort: Desc)])
   @@index([uploadedById])
   @@map("document")
+}
+
+model DocumentJob {
+  id            String            @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
+  documentId    String            @unique @db.Uuid
+  status        DocumentJobStatus @default(QUEUED)
+  attempts      Int               @default(0)
+  availableAt   DateTime          @default(now())
+  lockedAt      DateTime?
+  lockedBy      String?           @db.VarChar(96)
+  lastErrorCode String?           @db.VarChar(96)
+  lastErrorAt   DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  document      Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([status, availableAt])
+  @@map("document_job")
 }
 
 model DocumentFile {
@@ -330,6 +357,8 @@ model ActionItem {
   confidence       Decimal?       @db.Decimal(4, 3)
   generationReason String?
   generationKey    String?
+  sourcePageNumber Int?
+  sourceText       String?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 

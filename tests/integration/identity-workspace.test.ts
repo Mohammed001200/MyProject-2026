@@ -7,6 +7,8 @@ import {
 } from "@/server/auth/authorization";
 import { getAuth } from "@/server/auth/auth";
 import { getPrisma } from "@/server/db/prisma";
+import { processDocument } from "@/server/jobs/process-document";
+import { createDocumentObjectKey, getDocumentStorage } from "@/server/storage";
 import { ensurePersonalWorkspace } from "@/server/workspaces/service";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -178,5 +180,71 @@ describe("identity and workspace persistence", () => {
         },
       }),
     ).rejects.toThrow();
+  });
+
+  it("processes a private source into evidence and a Today action", async () => {
+    const user = await prisma.user.create({
+      data: {
+        name: "Pipeline User",
+        email: "pipeline.integration@example.test",
+        emailVerified: true,
+      },
+    });
+    const workspaceId = await ensurePersonalWorkspace(prisma, user);
+    const documentId = crypto.randomUUID();
+    const bytes = new TextEncoder().encode("%PDF-1.7\nfictional test source");
+    const objectKey = createDocumentObjectKey(workspaceId, documentId, "pdf");
+    await getDocumentStorage().put(objectKey, bytes);
+
+    try {
+      await prisma.document.create({
+        data: {
+          id: documentId,
+          workspaceId,
+          uploadedById: user.id,
+          title: "Pending analysis",
+          originalFileName: "fixture.pdf",
+          status: "QUEUED",
+          file: {
+            create: {
+              storageProvider: "local-private",
+              objectKey,
+              verifiedMimeType: "application/pdf",
+              extension: "pdf",
+              sizeBytes: bytes.byteLength,
+              sha256: "a".repeat(64),
+            },
+          },
+          job: { create: {} },
+        },
+      });
+
+      await expect(processDocument(documentId)).resolves.toEqual({
+        status: "ready",
+      });
+
+      const stored = await prisma.document.findUniqueOrThrow({
+        where: { id: documentId },
+        include: {
+          analyses: { include: { entities: true } },
+          actions: true,
+          job: true,
+        },
+      });
+      expect(stored.status).toBe("READY");
+      expect(stored.job?.status).toBe("READY");
+      expect(stored.analyses[0]?.entities[0]).toMatchObject({
+        type: "deadline",
+        pageNumber: 1,
+      });
+      expect(stored.actions[0]).toMatchObject({
+        title: "Submit requested information",
+        status: "OPEN",
+        sourceDocumentId: documentId,
+        sourcePageNumber: 1,
+      });
+    } finally {
+      await getDocumentStorage().delete(objectKey);
+    }
   });
 });
