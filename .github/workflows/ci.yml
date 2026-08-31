@@ -121,6 +121,7 @@ jobs:
         run: pnpm test:integration
 
   critical-path-e2e:
+    needs: database-integration
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
