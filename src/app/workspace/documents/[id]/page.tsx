@@ -10,9 +10,13 @@ import { inspectAuthEnvironment } from "@/server/env";
 
 export const dynamic = "force-dynamic";
 
+type WorkspaceDocumentPageProps = {
+  params: Promise<{ id: string }>;
+};
+
 export default async function WorkspaceDocumentPage({
   params,
-}: PageProps<"/workspace/documents/[id]">) {
+}: WorkspaceDocumentPageProps) {
   if (inspectAuthEnvironment().state !== "ready") redirect("/auth/sign-in");
   const viewer = await requireViewer();
   const { id } = await params;
