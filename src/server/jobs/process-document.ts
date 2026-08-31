@@ -6,6 +6,7 @@ import {
   AnalysisConfigurationError,
   getDocumentAnalysisProvider,
 } from "@/server/ai/provider";
+import { applyAnalysisSafetyPolicy } from "@/server/ai/safety-policy";
 import { getPrisma } from "@/server/db/prisma";
 import { getDocumentStorage } from "@/server/storage";
 
@@ -17,6 +18,25 @@ function jsonValue(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
 
+const MAX_PROCESSING_ATTEMPTS = 3;
+const STALE_JOB_LOCK_MS = 15 * 60 * 1000;
+
+class DocumentJobLeaseLostError extends Error {
+  constructor() {
+    super("The document job lease is no longer owned by this worker.");
+    this.name = "DocumentJobLeaseLostError";
+  }
+}
+
+function staleBefore(now: Date) {
+  return new Date(now.getTime() - STALE_JOB_LOCK_MS);
+}
+
+function retryAt(attempts: number) {
+  const delayMs = Math.min(30_000 * 2 ** Math.max(0, attempts - 1), 300_000);
+  return new Date(Date.now() + delayMs);
+}
+
 export async function processDocument(documentId: string) {
   const prisma = getPrisma();
   const workerId = `next-after-${randomUUID()}`;
@@ -25,9 +45,17 @@ export async function processDocument(documentId: string) {
   const claim = await prisma.documentJob.updateMany({
     where: {
       documentId,
-      status: { in: ["QUEUED", "RETRY"] },
-      availableAt: { lte: now },
-      lockedAt: null,
+      OR: [
+        {
+          status: { in: ["QUEUED", "RETRY"] },
+          availableAt: { lte: now },
+          lockedAt: null,
+        },
+        {
+          status: "PROCESSING",
+          lockedAt: { lte: staleBefore(now) },
+        },
+      ],
     },
     data: {
       status: "PROCESSING",
@@ -38,6 +66,10 @@ export async function processDocument(documentId: string) {
   });
 
   if (claim.count !== 1) return { status: "not-claimed" as const };
+  const claimedJob = await prisma.documentJob.findUniqueOrThrow({
+    where: { documentId },
+    select: { attempts: true },
+  });
 
   try {
     const document = await prisma.document.update({
@@ -55,14 +87,20 @@ export async function processDocument(documentId: string) {
         "application/pdf" | "image/jpeg" | "image/png",
       extension: document.file.extension as "pdf" | "jpg" | "jpeg" | "png",
     });
+    const safety = applyAnalysisSafetyPolicy(analysis.result);
 
     await prisma.$transaction(async (transaction) => {
+      const lease = await transaction.documentJob.updateMany({
+        where: { documentId, status: "PROCESSING", lockedBy: workerId },
+        data: { lockedAt: new Date() },
+      });
+      if (lease.count !== 1) throw new DocumentJobLeaseLostError();
+
       const storedAnalysis = await transaction.documentAnalysis.create({
         data: {
           documentId,
           version: 1,
-          status:
-            analysis.result.warnings.length > 0 ? "NEEDS_REVIEW" : "READY",
+          status: safety.needsReview ? "NEEDS_REVIEW" : "READY",
           provider: analysis.provider,
           model: analysis.model,
           schemaVersion: "document-analysis-v1",
@@ -72,7 +110,7 @@ export async function processDocument(documentId: string) {
           detectedLanguage: analysis.result.detectedLanguage,
           importance: analysis.result.importance,
           confidence: analysis.result.confidence,
-          warnings: jsonValue(analysis.result.warnings),
+          warnings: jsonValue(safety.warnings),
           normalizedPayload: jsonValue(analysis.result),
           inputTokens: analysis.inputTokens,
           outputTokens: analysis.outputTokens,
@@ -91,9 +129,9 @@ export async function processDocument(documentId: string) {
         },
       });
 
-      if (analysis.result.actions.length > 0) {
+      if (safety.actions.length > 0) {
         await transaction.actionItem.createMany({
-          data: analysis.result.actions.map((action, index) => ({
+          data: safety.actions.map((action, index) => ({
             workspaceId: document.workspaceId,
             sourceDocumentId: document.id,
             sourceAnalysisId: storedAnalysis.id,
@@ -121,9 +159,8 @@ export async function processDocument(documentId: string) {
           documentDate: atNoonUtc(analysis.result.documentDate),
           sourceDateText: analysis.result.sourceDateText,
           language: analysis.result.detectedLanguage,
-          requiresAction: analysis.result.actions.length > 0,
-          status:
-            analysis.result.warnings.length > 0 ? "NEEDS_REVIEW" : "READY",
+          requiresAction: safety.actions.length > 0,
+          status: safety.needsReview ? "NEEDS_REVIEW" : "READY",
           failureCode: null,
           failureMessage: null,
         },
@@ -150,8 +187,10 @@ export async function processDocument(documentId: string) {
           metadata: {
             provider: analysis.provider,
             model: analysis.model,
-            actionCount: analysis.result.actions.length,
-            warningCount: analysis.result.warnings.length,
+            actionCount: safety.actions.length,
+            withheldActionCount:
+              analysis.result.actions.length - safety.actions.length,
+            warningCount: safety.warnings.length,
           },
         },
       });
@@ -159,35 +198,90 @@ export async function processDocument(documentId: string) {
 
     return { status: "ready" as const };
   } catch (error) {
+    if (error instanceof DocumentJobLeaseLostError) {
+      return { status: "not-claimed" as const };
+    }
+
     const errorCode =
       error instanceof AnalysisConfigurationError
         ? error.code
         : "DOCUMENT_ANALYSIS_FAILED";
+    const willRetry =
+      !(error instanceof AnalysisConfigurationError) &&
+      claimedJob.attempts < MAX_PROCESSING_ATTEMPTS;
 
-    await prisma.$transaction([
-      prisma.document.update({
-        where: { id: documentId },
-        data: {
-          status: "FAILED",
-          failureCode: errorCode,
-          failureMessage:
-            errorCode === "AI_NOT_CONFIGURED"
-              ? "Document analysis is not configured in this environment."
-              : "Document analysis failed safely. The source was retained.",
-        },
-      }),
-      prisma.documentJob.update({
-        where: { documentId },
-        data: {
-          status: "FAILED",
-          lockedAt: null,
-          lockedBy: null,
-          lastErrorCode: errorCode,
-          lastErrorAt: new Date(),
-        },
-      }),
-    ]);
+    try {
+      await prisma.$transaction(async (transaction) => {
+        const release = await transaction.documentJob.updateMany({
+          where: { documentId, status: "PROCESSING", lockedBy: workerId },
+          data: {
+            status: willRetry ? "RETRY" : "FAILED",
+            availableAt: willRetry ? retryAt(claimedJob.attempts) : new Date(),
+            lockedAt: null,
+            lockedBy: null,
+            lastErrorCode: errorCode,
+            lastErrorAt: new Date(),
+          },
+        });
+        if (release.count !== 1) throw new DocumentJobLeaseLostError();
 
-    return { status: "failed" as const, errorCode };
+        await transaction.document.update({
+          where: { id: documentId },
+          data: {
+            status: willRetry ? "QUEUED" : "FAILED",
+            failureCode: willRetry ? null : errorCode,
+            failureMessage: willRetry
+              ? null
+              : errorCode === "AI_NOT_CONFIGURED"
+                ? "Document analysis is not configured in this environment."
+                : "Document analysis failed safely. The source was retained.",
+          },
+        });
+      });
+    } catch (releaseError) {
+      if (releaseError instanceof DocumentJobLeaseLostError) {
+        return { status: "not-claimed" as const };
+      }
+      throw releaseError;
+    }
+
+    return willRetry
+      ? { status: "retry" as const, errorCode }
+      : { status: "failed" as const, errorCode };
   }
+}
+
+export async function processAvailableDocumentJobs(limit = 5) {
+  const prisma = getPrisma();
+  const now = new Date();
+  const jobs = await prisma.documentJob.findMany({
+    where: {
+      OR: [
+        {
+          status: { in: ["QUEUED", "RETRY"] },
+          availableAt: { lte: now },
+          lockedAt: null,
+        },
+        {
+          status: "PROCESSING",
+          lockedAt: { lte: staleBefore(now) },
+        },
+      ],
+    },
+    orderBy: [{ availableAt: "asc" }, { createdAt: "asc" }],
+    take: Math.max(1, Math.min(limit, 10)),
+    select: { documentId: true },
+  });
+
+  const results = [];
+  for (const job of jobs) {
+    results.push(await processDocument(job.documentId));
+  }
+
+  return {
+    selected: jobs.length,
+    ready: results.filter((result) => result.status === "ready").length,
+    retry: results.filter((result) => result.status === "retry").length,
+    failed: results.filter((result) => result.status === "failed").length,
+  };
 }

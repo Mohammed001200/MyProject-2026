@@ -4,8 +4,8 @@ import {
   PrivateResourceNotFoundError,
   principalFromViewer,
   requireDocumentAccess,
-  requireViewer,
 } from "@/server/auth/authorization";
+import { getViewerContext } from "@/server/auth/session";
 import { inspectAuthEnvironment } from "@/server/env";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,8 @@ export default async function WorkspaceDocumentPage({
   params,
 }: WorkspaceDocumentPageProps) {
   if (inspectAuthEnvironment().state !== "ready") redirect("/auth/sign-in");
-  const viewer = await requireViewer();
+  const viewer = await getViewerContext();
+  if (!viewer) redirect("/auth/sign-in");
   const { id } = await params;
   try {
     await requireDocumentAccess(principalFromViewer(viewer), id);

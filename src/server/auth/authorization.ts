@@ -83,7 +83,15 @@ export async function requireDocumentAccess(
         take: 1,
         include: { entities: true },
       },
-      actions: { orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }] },
+      actions: {
+        where: {
+          OR: [
+            { sourceAnalysisId: null },
+            { sourceAnalysis: { is: { status: "READY" } } },
+          ],
+        },
+        orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
+      },
     },
   });
 
@@ -103,6 +111,10 @@ export async function requireActionAccess(
           members: { some: { userId: principal.userId } },
         },
       },
+      OR: [
+        { sourceAnalysisId: null },
+        { sourceAnalysis: { is: { status: "READY" } } },
+      ],
     },
   });
 

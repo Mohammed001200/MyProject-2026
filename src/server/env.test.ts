@@ -46,6 +46,16 @@ describe("auth environment", () => {
     });
   });
 
+  it("requires an explicit public auth URL in production", () => {
+    expect(
+      inspectAuthEnvironment({
+        DATABASE_URL: validEnvironment.DATABASE_URL,
+        BETTER_AUTH_SECRET: validEnvironment.BETTER_AUTH_SECRET,
+        NODE_ENV: "production",
+      }),
+    ).toEqual({ state: "missing", variables: ["BETTER_AUTH_URL"] });
+  });
+
   it("throws a safe message when authentication is unavailable", () => {
     expect(() =>
       requireAuthEnvironment({ BETTER_AUTH_SECRET: "do-not-repeat-me" }),

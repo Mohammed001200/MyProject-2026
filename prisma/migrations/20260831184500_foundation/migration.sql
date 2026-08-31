@@ -13,7 +13,6 @@ CREATE TYPE "Importance" AS ENUM ('LOW', 'NORMAL', 'HIGH', 'URGENT');
 CREATE TYPE "ActionStatus" AS ENUM ('OPEN', 'COMPLETED', 'DISMISSED');
 CREATE TYPE "ActionPriority" AS ENUM ('LOW', 'NORMAL', 'HIGH', 'URGENT');
 CREATE TYPE "FinancialItemType" AS ENUM ('INVOICE', 'PAYMENT', 'RENEWAL', 'RECURRING_COST', 'OTHER');
-CREATE TYPE "DocumentJobStatus" AS ENUM ('QUEUED', 'PROCESSING', 'RETRY', 'READY', 'FAILED');
 
 CREATE TABLE "user" (
     "id" UUID NOT NULL DEFAULT pg_catalog.gen_random_uuid(),
@@ -136,22 +135,6 @@ CREATE TABLE "document_file" (
     CONSTRAINT "document_file_sha256_check" CHECK ("sha256" ~ '^[0-9a-f]{64}$')
 );
 
-CREATE TABLE "document_job" (
-    "id" UUID NOT NULL DEFAULT pg_catalog.gen_random_uuid(),
-    "documentId" UUID NOT NULL,
-    "status" "DocumentJobStatus" NOT NULL DEFAULT 'QUEUED',
-    "attempts" INTEGER NOT NULL DEFAULT 0,
-    "availableAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "lockedAt" TIMESTAMP(3),
-    "lockedBy" VARCHAR(96),
-    "lastErrorCode" VARCHAR(96),
-    "lastErrorAt" TIMESTAMP(3),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-    CONSTRAINT "document_job_pkey" PRIMARY KEY ("id"),
-    CONSTRAINT "document_job_attempts_check" CHECK ("attempts" >= 0)
-);
-
 CREATE TABLE "document_analysis" (
     "id" UUID NOT NULL DEFAULT pg_catalog.gen_random_uuid(),
     "documentId" UUID NOT NULL,
@@ -229,13 +212,10 @@ CREATE TABLE "action_item" (
     "confidence" DECIMAL(4,3),
     "generationReason" TEXT,
     "generationKey" TEXT,
-    "sourcePageNumber" INTEGER,
-    "sourceText" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "action_item_pkey" PRIMARY KEY ("id"),
     CONSTRAINT "action_item_confidence_check" CHECK ("confidence" IS NULL OR ("confidence" >= 0 AND "confidence" <= 1)),
-    CONSTRAINT "action_item_sourcePageNumber_check" CHECK ("sourcePageNumber" IS NULL OR "sourcePageNumber" > 0),
     CONSTRAINT "action_item_lifecycle_check" CHECK (
       ("status" = 'OPEN' AND "completedAt" IS NULL AND "dismissedAt" IS NULL) OR
       ("status" = 'COMPLETED' AND "completedAt" IS NOT NULL AND "dismissedAt" IS NULL) OR
@@ -274,8 +254,6 @@ CREATE INDEX "document_uploadedById_idx" ON "document"("uploadedById");
 CREATE UNIQUE INDEX "document_file_documentId_key" ON "document_file"("documentId");
 CREATE UNIQUE INDEX "document_file_objectKey_key" ON "document_file"("objectKey");
 CREATE INDEX "document_file_sha256_idx" ON "document_file"("sha256");
-CREATE UNIQUE INDEX "document_job_documentId_key" ON "document_job"("documentId");
-CREATE INDEX "document_job_status_availableAt_idx" ON "document_job"("status", "availableAt");
 CREATE INDEX "document_analysis_documentId_status_idx" ON "document_analysis"("documentId", "status");
 CREATE UNIQUE INDEX "document_analysis_documentId_version_key" ON "document_analysis"("documentId", "version");
 CREATE INDEX "extracted_entity_analysisId_type_idx" ON "extracted_entity"("analysisId", "type");
@@ -298,7 +276,6 @@ ALTER TABLE "workspace_member" ADD CONSTRAINT "workspace_member_userId_fkey" FOR
 ALTER TABLE "document" ADD CONSTRAINT "document_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "workspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "document" ADD CONSTRAINT "document_uploadedById_fkey" FOREIGN KEY ("uploadedById") REFERENCES "user"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "document_file" ADD CONSTRAINT "document_file_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "document"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "document_job" ADD CONSTRAINT "document_job_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "document"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "document_analysis" ADD CONSTRAINT "document_analysis_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "document"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "extracted_entity" ADD CONSTRAINT "extracted_entity_analysisId_fkey" FOREIGN KEY ("analysisId") REFERENCES "document_analysis"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "financial_item" ADD CONSTRAINT "financial_item_analysisId_fkey" FOREIGN KEY ("analysisId") REFERENCES "document_analysis"("id") ON DELETE CASCADE ON UPDATE CASCADE;

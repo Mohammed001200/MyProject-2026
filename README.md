@@ -2,7 +2,7 @@
 
 CIVORA is a personal life-administration product that turns important documents into clear explanations, trusted deadlines, and useful actions.
 
-> **Current status:** active founding build. The marketing and application surfaces remain an explicitly labeled fictional preview. The PostgreSQL schema/migration, Better Auth boundary, personal-workspace bootstrap, onboarding persistence, and protected workspace route are implemented; activation still requires PostgreSQL and server secrets. Private file storage and live AI analysis are not yet enabled. Do not upload real personal information.
+> **Current status:** active founding build. The authenticated development path now covers signup, onboarding, bounded private upload, durable processing state, schema-validated OpenAI analysis, source-backed actions, Today, and authorized source download. Activation requires PostgreSQL and server secrets; live model credentials have not been verified, and production object storage is intentionally unavailable until a durable private adapter is configured. Do not upload real personal information.
 
 ## Run locally
 
@@ -46,7 +46,7 @@ Server-only auth, database, storage, job, and AI boundaries live under `src/serv
 
 Copy `.env.example` to `.env` only when a milestone needs external configuration. Never commit `.env*` files other than `.env.example`, and never place server secrets in `NEXT_PUBLIC_*` variables.
 
-The preview needs no credentials. To activate real signup/onboarding, configure `DATABASE_URL`, a 32+ character `BETTER_AUTH_SECRET`, and `BETTER_AUTH_URL`, then run `corepack pnpm db:generate` and `corepack pnpm db:deploy`. This machine has no PostgreSQL service, so the migration and real auth/tenant flow run in the isolated PostgreSQL CI job.
+The preview needs no credentials. To activate the authenticated development flow, configure `DATABASE_URL`, a 32+ character `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `OPENAI_API_KEY`, and an explicit `OPENAI_MODEL`, then run `corepack pnpm db:generate` and `corepack pnpm db:deploy`. A scheduled production worker can call the protected document-job endpoint with `CIVORA_JOB_SECRET`; the request-local `after()` path is development convenience, not the production durability boundary. This machine has no PostgreSQL service, so migrations and the full authenticated document-to-action journey run against isolated PostgreSQL services in CI.
 
 ## Product and security
 

@@ -12,6 +12,15 @@ import { getPrisma } from "@/server/db/prisma";
 import { isConfigurationError } from "@/server/env";
 import { processDocument } from "@/server/jobs/process-document";
 import { createDocumentObjectKey, getDocumentStorage } from "@/server/storage";
+import {
+  InvalidUploadFormError,
+  UploadRequestTooLargeError,
+  readDocumentUploadForm,
+} from "@/server/uploads/request-body";
+import {
+  UploadRateLimitError,
+  consumeUploadAttempt,
+} from "@/server/uploads/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,21 +29,11 @@ export async function POST(request: Request) {
   try {
     const viewer = await requireViewer();
     const prisma = getPrisma();
-    const recentUploads = await prisma.document.count({
-      where: {
-        uploadedById: viewer.session.user.id,
-        createdAt: { gte: new Date(Date.now() - 10 * 60 * 1000) },
-      },
+    await consumeUploadAttempt({
+      userId: viewer.session.user.id,
+      workspaceId: viewer.workspaceId,
     });
-
-    if (recentUploads >= 10) {
-      return Response.json(
-        { code: "UPLOAD_RATE_LIMITED", message: "Try again in a few minutes." },
-        { status: 429 },
-      );
-    }
-
-    const form = await request.formData();
+    const form = await readDocumentUploadForm(request);
     const file = form.get("file");
     if (!(file instanceof File)) {
       return Response.json(
@@ -106,6 +105,24 @@ export async function POST(request: Request) {
       return Response.json(
         { code: error.code, message: error.message },
         { status: 400 },
+      );
+    }
+    if (error instanceof UploadRequestTooLargeError) {
+      return Response.json(
+        { code: error.code, message: "The upload limit is 10 MB." },
+        { status: 413 },
+      );
+    }
+    if (error instanceof InvalidUploadFormError) {
+      return Response.json(
+        { code: error.code, message: "The upload request is invalid." },
+        { status: 400 },
+      );
+    }
+    if (error instanceof UploadRateLimitError) {
+      return Response.json(
+        { code: error.code, message: error.message },
+        { status: 429 },
       );
     }
     if (error instanceof UnauthenticatedError) {

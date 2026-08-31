@@ -4,7 +4,7 @@
 
 ## Implementation snapshot — 2026-08-31
 
-The repository currently runs Next.js 16.3.3, React 19.2.8, strict TypeScript 5.9, Tailwind CSS 4.3, Prisma 7.10, Better Auth 1.7, Vitest 4, and Playwright on Node 22.19. Identity, PostgreSQL tenancy, onboarding, and authorization foundations are implemented, with real database execution delegated to CI until local PostgreSQL is configured. The visible `/app/*` product remains a clearly labeled fictional preview; private storage, background processing, and live AI requests are not yet enabled.
+The repository currently runs Next.js 16.3.3, React 19.2.8, strict TypeScript 5.9, Tailwind CSS 4.3, Prisma 7.10, Better Auth 1.7, the official OpenAI SDK, Vitest 4, and Playwright on Node 22.19. Identity, tenancy, onboarding, bounded private development storage, persisted document jobs, structured analysis, safety-gated actions, Today, and authorized source retrieval are implemented and exercised end to end against PostgreSQL in CI. The visible `/app/*` product remains a clearly labeled fictional preview. Production object storage, deployed scheduling, and a live credentialed model run remain unavailable and fail closed.
 
 ## Architectural goals
 

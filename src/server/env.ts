@@ -22,7 +22,10 @@ const httpUrlSchema = z
 
 export type AuthEnvironmentStatus =
   | { state: "ready" }
-  | { state: "missing"; variables: ("DATABASE_URL" | "BETTER_AUTH_SECRET")[] }
+  | {
+      state: "missing";
+      variables: ("DATABASE_URL" | "BETTER_AUTH_SECRET" | "BETTER_AUTH_URL")[];
+    }
   | { state: "invalid"; variables: string[] };
 
 export type AuthEnvironment = {
@@ -58,10 +61,16 @@ export function inspectAuthEnvironment(
 ): AuthEnvironmentStatus {
   const databaseUrl = present(source.DATABASE_URL);
   const secret = present(source.BETTER_AUTH_SECRET);
-  const missing: ("DATABASE_URL" | "BETTER_AUTH_SECRET")[] = [];
+  const configuredBaseUrl =
+    present(source.BETTER_AUTH_URL) ?? present(source.NEXT_PUBLIC_APP_URL);
+  const missing: ("DATABASE_URL" | "BETTER_AUTH_SECRET" | "BETTER_AUTH_URL")[] =
+    [];
 
   if (!databaseUrl) missing.push("DATABASE_URL");
   if (!secret) missing.push("BETTER_AUTH_SECRET");
+  if (source.NODE_ENV === "production" && !configuredBaseUrl) {
+    missing.push("BETTER_AUTH_URL");
+  }
 
   if (missing.length > 0) {
     return { state: "missing", variables: missing };

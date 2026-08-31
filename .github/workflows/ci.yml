@@ -110,8 +110,77 @@ jobs:
       - name: Generate typed database client
         run: pnpm db:generate
 
-      - name: Apply migrations to isolated PostgreSQL
-        run: pnpm db:deploy
+      - name: Verify additive migration upgrade path
+        run: |
+          mv prisma/migrations/20260831223000_document_pipeline /tmp/civora-document-pipeline-migration
+          pnpm db:deploy
+          mv /tmp/civora-document-pipeline-migration prisma/migrations/20260831223000_document_pipeline
+          pnpm db:deploy
 
       - name: Run identity and tenant integration tests
         run: pnpm test:integration
+
+  critical-path-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18.6-alpine
+        env:
+          POSTGRES_USER: civora_e2e
+          POSTGRES_PASSWORD: civora_e2e
+          POSTGRES_DB: civora_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U civora_e2e -d civora_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://civora_e2e:civora_e2e@127.0.0.1:5432/civora_e2e
+      BETTER_AUTH_SECRET: ci-only-better-auth-secret-not-used-outside-tests
+      BETTER_AUTH_URL: http://127.0.0.1:3000
+      CIVORA_INTEGRATION_TESTS: "true"
+      CIVORA_AI_DRIVER: integration-test
+      CIVORA_E2E_DATABASE: "true"
+      LOCAL_STORAGE_ROOT: .civora-data/e2e
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+
+      - name: Enable locked pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.24.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate typed database client
+        run: pnpm db:generate
+
+      - name: Apply migrations to isolated PostgreSQL
+        run: pnpm db:deploy
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run authenticated document-to-action journey
+        run: >-
+          pnpm exec playwright test tests/e2e/critical-path.spec.ts
+          --project=desktop-edge
+
+      - name: Upload browser report on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: critical-path-playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7

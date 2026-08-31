@@ -29,7 +29,10 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "corepack pnpm start",
+    command:
+      process.env.CIVORA_E2E_DATABASE === "true"
+        ? "corepack pnpm dev"
+        : "corepack pnpm start",
     url: "http://127.0.0.1:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

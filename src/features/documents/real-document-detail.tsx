@@ -24,7 +24,7 @@ type DocumentView = {
     simpleExplanation: string | null;
     importance: string;
     confidence: number | null;
-    warnings: unknown;
+    warnings: string[];
     entities: Array<{
       id: string;
       label: string;
@@ -146,6 +146,27 @@ export function RealDocumentDetail({ documentId }: { documentId: string }) {
               {document.organizationName ?? "Organization not identified"}
             </p>
 
+            {document.status === "NEEDS_REVIEW" && (
+              <section
+                className="mt-8 rounded-3xl border border-attention/25 bg-attention-wash p-6"
+                aria-labelledby="review-heading"
+              >
+                <div className="flex items-center gap-3">
+                  <ShieldAlert className="h-5 w-5 text-attention" />
+                  <h2 id="review-heading" className="font-extrabold text-ink">
+                    Review needed before acting
+                  </h2>
+                </div>
+                <ul className="mt-3 grid gap-2 pl-5 text-sm leading-6 text-ink-soft">
+                  {document.analysis?.warnings.map((warning) => (
+                    <li key={warning} className="list-disc">
+                      {warning}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
             <div className="mt-12 grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
               <section className="rounded-3xl border border-line bg-surface p-6 sm:p-8">
                 <p className="eyebrow text-brand">What it means</p>
@@ -165,7 +186,9 @@ export function RealDocumentDetail({ documentId }: { documentId: string }) {
                 <div className="mt-5 grid gap-5">
                   {document.actions.length === 0 ? (
                     <p className="text-sm text-white/65">
-                      No action was supported by the source.
+                      {document.status === "NEEDS_REVIEW"
+                        ? "Automatic actions are held back until the analysis can be trusted."
+                        : "No action was supported by the source."}
                     </p>
                   ) : (
                     document.actions.map((action) => (

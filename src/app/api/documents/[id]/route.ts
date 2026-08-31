@@ -47,7 +47,11 @@ export async function GET(_request: Request, { params }: DocumentRouteProps) {
             confidence: analysis.confidence
               ? Number(analysis.confidence)
               : null,
-            warnings: analysis.warnings,
+            warnings: Array.isArray(analysis.warnings)
+              ? analysis.warnings.filter(
+                  (warning): warning is string => typeof warning === "string",
+                )
+              : [],
             entities: analysis.entities.map((entity) => ({
               ...entity,
               confidence: entity.confidence ? Number(entity.confidence) : null,

@@ -37,15 +37,19 @@ Trust boundaries exist between the browser and Next.js server, server and Postgr
 
 - Strict TypeScript, shared client-side file policy, and unit coverage for file type/size and attention priority.
 - Explicit fictional/demo labeling and local-only upload interaction.
-- No committed credentials, AI calls, file upload endpoint, public source files, or billing path.
+- No committed credentials, public source files, or billing path.
 - Baseline security headers: content-type sniffing prevention, clickjacking denial, strict referrer policy, browser capability restrictions, and opener isolation.
 - Private app preview pages are marked `noindex`.
 - Reduced-motion support and accessible labels on current controls.
 - Better Auth with 12-character minimum passwords, secure production cookies, origin controls, rate limits, safe auth errors, and no committed secrets.
 - Workspace membership as the tenant boundary, centralized non-enumerating record policies, idempotent personal-workspace creation, and metadata-only bootstrap audit events.
 - PostgreSQL migration constraints plus isolated CI tests for real signup/signin and cross-workspace denial.
+- Bounded upload-body streaming before multipart parsing, allowlisted byte signatures, opaque private keys, SHA-256 metadata, and atomic per-user attempt limiting.
+- Versioned structured AI output with provider storage disabled, prompt-injection separation, compact provenance, confidence thresholds, and automatic-action suppression when review is required.
+- Fenced document-job leases, bounded retries, stale-lock recovery, and a secret-protected scheduler boundary.
+- PostgreSQL-backed browser coverage for signup, onboarding, upload, processing, evidence, source download, Today completion, and cross-tenant document/file/action denial.
 
-These controls do not make the application safe for personal documents; they merely reduce risk in the preview milestone.
+These controls do not make the application safe for personal documents. Production private storage, deployed durable scheduling, live-provider validation, email verification/recovery, deletion, monitoring, and operational review remain incomplete.
 
 ## Mandatory gates before real uploads
 

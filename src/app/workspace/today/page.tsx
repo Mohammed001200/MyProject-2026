@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { WorkspaceToday } from "@/features/today/workspace-today";
-import { requireViewer } from "@/server/auth/authorization";
+import { getViewerContext } from "@/server/auth/session";
 import { getPrisma } from "@/server/db/prisma";
 import { inspectAuthEnvironment } from "@/server/env";
 
@@ -9,9 +9,17 @@ const rank = { URGENT: 0, HIGH: 1, NORMAL: 2, LOW: 3 } as const;
 
 export default async function RealTodayPage() {
   if (inspectAuthEnvironment().state !== "ready") redirect("/auth/sign-in");
-  const viewer = await requireViewer();
+  const viewer = await getViewerContext();
+  if (!viewer) redirect("/auth/sign-in");
   const rows = await getPrisma().actionItem.findMany({
-    where: { workspaceId: viewer.workspaceId, status: "OPEN" },
+    where: {
+      workspaceId: viewer.workspaceId,
+      status: "OPEN",
+      OR: [
+        { sourceAnalysisId: null },
+        { sourceAnalysis: { is: { status: "READY" } } },
+      ],
+    },
     include: { sourceDocument: { select: { id: true, title: true } } },
     orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
     take: 100,
