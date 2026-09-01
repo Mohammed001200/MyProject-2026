@@ -2,9 +2,9 @@
 
 > Status: target architecture and decision record for the founding build. A component is not implemented merely because it appears here. `ROADMAP.md`, the schema, tests, and running code are the implementation truth.
 
-## Implementation snapshot — 2026-08-31
+## Implementation snapshot — 2026-09-01
 
-The repository currently runs Next.js 16.3.3, React 19.2.8, strict TypeScript 5.9, Tailwind CSS 4.3, Prisma 7.10, Better Auth 1.7, the official OpenAI SDK, Vitest 4, and Playwright on Node 22.19. Identity, tenancy, onboarding, bounded private development storage, persisted document jobs, structured analysis, safety-gated actions, Today, and authorized source retrieval are implemented and exercised end to end against PostgreSQL in CI. The visible `/app/*` product remains a clearly labeled fictional preview. Production object storage, deployed scheduling, and a live credentialed model run remain unavailable and fail closed.
+The repository currently runs Next.js 16.3.3, React 19.2.8, strict TypeScript 5.9, Tailwind CSS 4.3, Prisma 7.10, Better Auth 1.7, the official OpenAI and AWS SDKs, Vitest 4, and Playwright on Node 22.19. Identity, tenancy, onboarding, durable upload intents, private storage adapters, persisted document jobs, structured analysis, safety-gated actions, Today, search, authorized source retrieval, and coordinated deletion are implemented and exercised against PostgreSQL in CI. The visible `/app/*` product remains a clearly labeled fictional preview. Production storage credentials, deployed scheduling, and a live credentialed model run remain unavailable and fail closed.
 
 ## Architectural goals
 

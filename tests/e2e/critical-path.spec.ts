@@ -101,6 +101,7 @@ test.describe("authenticated critical path", () => {
       const response = await fetch(`/api/documents/${documentId}`);
       return {
         status: response.status,
+        cacheControl: response.headers.get("cache-control"),
         body: (await response.json()) as {
           actions: Array<{ id: string; sourcePageNumber: number }>;
           status: string;
@@ -108,6 +109,7 @@ test.describe("authenticated critical path", () => {
       };
     }, upload.documentId);
     expect(documentResponse.status).toBe(200);
+    expect(documentResponse.cacheControl).toContain("no-store");
     const document = documentResponse.body;
     expect(document.status).toBe("READY");
     expect(document.actions).toHaveLength(1);
@@ -141,20 +143,26 @@ test.describe("authenticated critical path", () => {
       });
       const outsiderStatuses = await outsiderPage.evaluate(
         async ({ documentId, actionId }) => {
-          const [document, source, action] = await Promise.all([
+          const [document, source, deletion, action] = await Promise.all([
             fetch(`/api/documents/${documentId}`),
             fetch(`/api/documents/${documentId}/source`),
+            fetch(`/api/documents/${documentId}`, { method: "DELETE" }),
             fetch(`/api/actions/${actionId}`, {
               method: "PATCH",
               headers: { "content-type": "application/json" },
               body: JSON.stringify({ status: "COMPLETED" }),
             }),
           ]);
-          return [document.status, source.status, action.status];
+          return [
+            document.status,
+            source.status,
+            deletion.status,
+            action.status,
+          ];
         },
         { documentId: upload.documentId, actionId },
       );
-      expect(outsiderStatuses).toEqual([404, 404, 404]);
+      expect(outsiderStatuses).toEqual([404, 404, 404, 404]);
     } finally {
       await outsiderContext.close();
     }
@@ -179,5 +187,47 @@ test.describe("authenticated critical path", () => {
     await expect(
       page.getByRole("heading", { name: "Nothing needs your attention." }),
     ).toBeVisible();
+
+    await page.goto("/workspace/documents?q=Fictional");
+    const libraryDocument = page.getByRole("article").filter({
+      has: page.getByRole("heading", {
+        name: "Fictional information request",
+      }),
+    });
+    await expect(libraryDocument).toBeVisible();
+    const openDocument = libraryDocument.getByRole("link", {
+      name: "View document",
+    });
+    await expect(openDocument).toHaveAttribute(
+      "href",
+      `/workspace/documents/${upload.documentId}`,
+    );
+    await openDocument.click();
+    await expect(page).toHaveURL(
+      new RegExp(`/workspace/documents/${upload.documentId}$`),
+    );
+
+    await page.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect(
+      page.getByRole("group", { name: "Confirm document deletion" }),
+    ).toBeVisible();
+    const deleteResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/api/documents/${upload.documentId}`) &&
+        response.request().method() === "DELETE",
+    );
+    await page.getByRole("button", { name: "Delete permanently" }).click();
+    expect((await deleteResponsePromise).status()).toBe(200);
+    await expect(page).toHaveURL(/\/workspace\/documents$/);
+    await expect(libraryDocument).toHaveCount(0);
+
+    const deletedStatuses = await page.evaluate(async (documentId) => {
+      const [document, source] = await Promise.all([
+        fetch(`/api/documents/${documentId}`),
+        fetch(`/api/documents/${documentId}/source`),
+      ]);
+      return [document.status, source.status];
+    }, upload.documentId);
+    expect(deletedStatuses).toEqual([404, 404]);
   });
 });

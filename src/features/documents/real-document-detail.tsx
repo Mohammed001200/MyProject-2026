@@ -7,8 +7,11 @@ import {
   FileText,
   LoaderCircle,
   ShieldAlert,
+  Trash2,
 } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 type DocumentView = {
@@ -46,8 +49,37 @@ type DocumentView = {
 };
 
 export function RealDocumentDetail({ documentId }: { documentId: string }) {
+  const router = useRouter();
   const [document, setDocument] = useState<DocumentView | null>(null);
   const [error, setError] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(false);
+
+  async function removeDocument() {
+    setDeleting(true);
+    setDeleteError(false);
+    try {
+      const response = await fetch(`/api/documents/${documentId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        setDeleteError(true);
+        return;
+      }
+      const result = (await response.json()) as { pending?: boolean };
+      router.replace(
+        (result.pending
+          ? "/workspace/documents?deletion=pending"
+          : "/workspace/documents") as Route,
+      );
+      router.refresh();
+    } catch {
+      setDeleteError(true);
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -109,20 +141,64 @@ export function RealDocumentDetail({ documentId }: { documentId: string }) {
       <div className="mx-auto max-w-5xl">
         <div className="flex items-center justify-between gap-4">
           <Link
-            href="/workspace/today"
+            href={"/workspace/documents" as Route}
             className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-ink-soft no-underline"
           >
-            <ArrowLeft className="h-4 w-4" /> Today
+            <ArrowLeft className="h-4 w-4" /> Documents
           </Link>
-          {document.file && (
-            <a
-              href={document.file.sourceUrl}
-              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line-strong px-4 text-sm font-bold text-ink no-underline"
-            >
-              <Download className="h-4 w-4" /> Download source
-            </a>
-          )}
+          <div className="flex flex-wrap justify-end gap-2">
+            {document.file && (
+              <a
+                href={document.file.sourceUrl}
+                className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line-strong px-4 text-sm font-bold text-ink no-underline"
+              >
+                <Download className="h-4 w-4" /> Download source
+              </a>
+            )}
+            {!confirmDelete ? (
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                className="inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-sm font-bold text-danger"
+              >
+                <Trash2 className="h-4 w-4" /> Delete
+              </button>
+            ) : (
+              <div
+                className="flex flex-wrap justify-end gap-2"
+                role="group"
+                aria-label="Confirm document deletion"
+              >
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => setConfirmDelete(false)}
+                  className="min-h-11 rounded-full px-4 text-sm font-bold text-ink-soft"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={removeDocument}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-full bg-danger px-4 text-sm font-bold text-white disabled:opacity-60"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {deleting ? "Deleting…" : "Delete permanently"}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
+
+        {deleteError && (
+          <p
+            className="mt-4 rounded-2xl bg-danger-wash px-4 py-3 text-sm text-danger"
+            role="alert"
+          >
+            CIVORA could not complete deletion safely. Try again.
+          </p>
+        )}
 
         {document.status === "FAILED" ? (
           <div className="mt-16 rounded-3xl border border-attention/25 bg-attention-wash p-7">

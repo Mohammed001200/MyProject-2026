@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isExplicitCiE2EEnvironment } from "@/server/testing/environment";
 
 type EnvironmentSource = Readonly<Record<string, string | undefined>>;
 
@@ -20,6 +21,29 @@ const httpUrlSchema = z
     return protocol === "http:" || protocol === "https:";
   }, "must be an HTTP or HTTPS URL");
 
+const s3BucketSchema = z
+  .string()
+  .trim()
+  .min(3)
+  .max(63)
+  .regex(/^[a-z0-9][a-z0-9.-]*[a-z0-9]$/)
+  .refine((value) => !value.includes(".."), "must not contain adjacent periods")
+  .refine(
+    (value) => !/^\d{1,3}(?:\.\d{1,3}){3}$/.test(value),
+    "must not be formatted as an IP address",
+  );
+
+const s3RegionSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .regex(/^[a-z0-9][a-z0-9-]*$/i);
+
+const strictBooleanSchema = z
+  .enum(["true", "false"])
+  .transform((value) => value === "true");
+
 export type AuthEnvironmentStatus =
   | { state: "ready" }
   | {
@@ -33,6 +57,29 @@ export type AuthEnvironment = {
   secret: string;
   baseUrl: string;
 };
+
+export type StorageEnvironmentStatus =
+  | { state: "ready" }
+  | { state: "missing"; variables: string[] }
+  | { state: "invalid"; variables: string[] };
+
+export type StorageEnvironment =
+  | {
+      driver: "local";
+      root: string;
+    }
+  | {
+      driver: "s3";
+      bucket: string;
+      region: string;
+      endpoint?: string;
+      forcePathStyle: boolean;
+      credentials?: {
+        accessKeyId: string;
+        secretAccessKey: string;
+        sessionToken?: string;
+      };
+    };
 
 export class CivoraConfigurationError extends Error {
   readonly code = "CIVORA_CONFIGURATION_ERROR";
@@ -54,6 +101,125 @@ function resolveBaseUrl(source: EnvironmentSource) {
     present(source.NEXT_PUBLIC_APP_URL) ??
     "http://localhost:3000"
   );
+}
+
+type StorageEnvironmentResult =
+  | { success: true; value: StorageEnvironment }
+  | {
+      success: false;
+      status: Exclude<StorageEnvironmentStatus, { state: "ready" }>;
+    };
+
+function parseStorageEnvironment(
+  source: EnvironmentSource,
+): StorageEnvironmentResult {
+  const configuredDriver = present(source.CIVORA_STORAGE_DRIVER);
+  const explicitCiE2E = isExplicitCiE2EEnvironment(source);
+
+  if (source.NODE_ENV === "production" && !explicitCiE2E && !configuredDriver) {
+    return {
+      success: false,
+      status: { state: "missing", variables: ["CIVORA_STORAGE_DRIVER"] },
+    };
+  }
+
+  const driver = configuredDriver ?? "local";
+  if (driver !== "local" && driver !== "s3") {
+    return {
+      success: false,
+      status: { state: "invalid", variables: ["CIVORA_STORAGE_DRIVER"] },
+    };
+  }
+
+  if (driver === "local") {
+    const isLocalDevelopment =
+      source.NODE_ENV === undefined || source.NODE_ENV === "development";
+    if (!isLocalDevelopment && !explicitCiE2E) {
+      return {
+        success: false,
+        status: { state: "invalid", variables: ["CIVORA_STORAGE_DRIVER"] },
+      };
+    }
+
+    return {
+      success: true,
+      value: {
+        driver,
+        root: present(source.LOCAL_STORAGE_ROOT) ?? ".civora-data",
+      },
+    };
+  }
+
+  const bucket = present(source.S3_BUCKET);
+  const region = present(source.S3_REGION);
+  const missing: string[] = [];
+  if (!bucket) missing.push("S3_BUCKET");
+  if (!region) missing.push("S3_REGION");
+  if (missing.length > 0) {
+    return { success: false, status: { state: "missing", variables: missing } };
+  }
+
+  const endpoint = present(source.S3_ENDPOINT);
+  const forcePathStyleValue = present(source.S3_FORCE_PATH_STYLE) ?? "false";
+  const accessKeyId = present(source.S3_ACCESS_KEY_ID);
+  const secretAccessKey = present(source.S3_SECRET_ACCESS_KEY);
+  const sessionToken = present(source.S3_SESSION_TOKEN);
+  const invalid: string[] = [];
+
+  if (!s3BucketSchema.safeParse(bucket).success) invalid.push("S3_BUCKET");
+  if (!s3RegionSchema.safeParse(region).success) invalid.push("S3_REGION");
+
+  const endpointResult = endpoint
+    ? httpUrlSchema.safeParse(endpoint)
+    : undefined;
+  if (endpointResult && !endpointResult.success) {
+    invalid.push("S3_ENDPOINT");
+  } else if (
+    endpointResult?.success &&
+    source.NODE_ENV === "production" &&
+    new URL(endpointResult.data).protocol !== "https:"
+  ) {
+    invalid.push("S3_ENDPOINT");
+  }
+
+  const forcePathStyleResult =
+    strictBooleanSchema.safeParse(forcePathStyleValue);
+  if (!forcePathStyleResult.success) invalid.push("S3_FORCE_PATH_STYLE");
+
+  if (Boolean(accessKeyId) !== Boolean(secretAccessKey)) {
+    invalid.push("S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY");
+  }
+  if (sessionToken && (!accessKeyId || !secretAccessKey)) {
+    invalid.push("S3_SESSION_TOKEN");
+  }
+
+  if (invalid.length > 0) {
+    return {
+      success: false,
+      status: { state: "invalid", variables: [...new Set(invalid)] },
+    };
+  }
+
+  return {
+    success: true,
+    value: {
+      driver,
+      bucket: s3BucketSchema.parse(bucket),
+      region: s3RegionSchema.parse(region),
+      endpoint: endpointResult?.success ? endpointResult.data : undefined,
+      forcePathStyle: forcePathStyleResult.success
+        ? forcePathStyleResult.data
+        : false,
+      credentials:
+        accessKeyId && secretAccessKey
+          ? {
+              accessKeyId,
+              secretAccessKey,
+              sessionToken,
+            }
+          : undefined,
+    },
+  };
 }
 
 export function inspectAuthEnvironment(
@@ -122,6 +288,25 @@ export function requireAuthEnvironment(
     secret: authSecretSchema.parse(present(source.BETTER_AUTH_SECRET)),
     baseUrl: httpUrlSchema.parse(resolveBaseUrl(source)),
   };
+}
+
+export function inspectStorageEnvironment(
+  source: EnvironmentSource = process.env,
+): StorageEnvironmentStatus {
+  const result = parseStorageEnvironment(source);
+  return result.success ? { state: "ready" } : result.status;
+}
+
+export function requireStorageEnvironment(
+  source: EnvironmentSource = process.env,
+): StorageEnvironment {
+  const result = parseStorageEnvironment(source);
+  if (!result.success) {
+    throw new CivoraConfigurationError(
+      "Document storage is unavailable because its server configuration is incomplete or unsafe.",
+    );
+  }
+  return result.value;
 }
 
 export function isConfigurationError(

@@ -3,9 +3,11 @@ import {
   Check,
   Database,
   Fingerprint,
+  FolderOpen,
   SlidersHorizontal,
   Upload,
 } from "lucide-react";
+import type { Route } from "next";
 import { Brand } from "@/components/brand";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ButtonLink } from "@/components/ui/button-link";
@@ -20,7 +22,7 @@ const foundations = [
   {
     icon: Database,
     title: "Personal workspace",
-    detail: "Membership is the boundary for future records.",
+    detail: "Membership keeps every document inside your workspace boundary.",
   },
   {
     icon: SlidersHorizontal,
@@ -64,17 +66,26 @@ export function WorkspaceHome({
             </h1>
             <p className="mt-7 max-w-xl text-base leading-7 text-ink-soft sm:text-lg">
               <strong className="text-ink">{workspaceName}</strong> now has a
-              persisted identity and tenant boundary. Real document ingestion
-              remains closed until private storage and authorization tests are
-              complete.
+              private document flow. Upload a source, understand what matters,
+              and follow every action back to its evidence.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <ButtonLink href="/workspace/upload" className="min-h-13 px-6">
-                Add a real document <Upload className="h-4 w-4" />
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <ButtonLink
+                href={"/workspace/documents" as Route}
+                className="min-h-13 px-6"
+              >
+                Open documents <FolderOpen className="h-4 w-4" />
+              </ButtonLink>
+              <ButtonLink
+                href="/workspace/upload"
+                tone="secondary"
+                className="min-h-13 px-6"
+              >
+                Add a document <Upload className="h-4 w-4" />
               </ButtonLink>
               <ButtonLink
                 href="/workspace/today"
-                tone="secondary"
+                tone="quiet"
                 className="min-h-13 px-6"
               >
                 Open Today <ArrowRight className="h-4 w-4" />
@@ -104,11 +115,11 @@ export function WorkspaceHome({
       </section>
 
       <section className="mx-auto max-w-[1180px] px-5 py-12 sm:px-8">
-        <p className="eyebrow text-ink-faint">Next engineering gate</p>
+        <p className="eyebrow text-ink-faint">Source-backed by design</p>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-ink-soft">
-          The authenticated upload path validates bytes and tenant access. Use
-          non-sensitive test files until durable production storage, retention,
-          and deployment security audits are complete.
+          CIVORA validates uploaded file bytes, restricts access to your
+          authorized workspace, and keeps document evidence connected to every
+          generated action.
         </p>
       </section>
     </main>

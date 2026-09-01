@@ -9,10 +9,19 @@ import {
 import { getAuth } from "@/server/auth/auth";
 import { getPrisma } from "@/server/db/prisma";
 import {
+  cleanupPendingDocumentDeletions,
+  deleteDocument,
+} from "@/server/documents/delete-document";
+import {
   processAvailableDocumentJobs,
   processDocument,
 } from "@/server/jobs/process-document";
 import { createDocumentObjectKey, getDocumentStorage } from "@/server/storage";
+import {
+  abandonDocumentUploadIntent,
+  createDocumentUploadIntent,
+  promoteDocumentUploadIntent,
+} from "@/server/uploads/document-intent";
 import {
   UploadRateLimitError,
   consumeUploadAttempt,
@@ -174,6 +183,12 @@ describe("identity and workspace persistence", () => {
     await expect(
       requireDocumentAccess({ userId: owner.id }, document.id),
     ).resolves.toMatchObject({ id: document.id });
+    await expect(
+      deleteDocument({ userId: outsider.id }, document.id),
+    ).rejects.toBeInstanceOf(PrivateResourceNotFoundError);
+    await expect(
+      prisma.document.findUnique({ where: { id: document.id } }),
+    ).resolves.toMatchObject({ id: document.id });
 
     await expect(
       prisma.documentAnalysis.create({
@@ -216,6 +231,252 @@ describe("identity and workspace persistence", () => {
     await expect(
       requireDocumentAccess({ userId: owner.id }, document.id),
     ).resolves.toMatchObject({ actions: [] });
+  });
+
+  it("keeps a durable upload intent private and jobless until promotion", async () => {
+    const user = await prisma.user.create({
+      data: {
+        name: "Upload Intent User",
+        email: "upload-intent.integration@example.test",
+        emailVerified: true,
+      },
+    });
+    const workspaceId = await ensurePersonalWorkspace(prisma, user);
+    const documentId = crypto.randomUUID();
+    const storage = getDocumentStorage();
+    const bytes = new TextEncoder().encode("%PDF-1.7\nintent fixture");
+    const objectKey = createDocumentObjectKey(workspaceId, documentId, "pdf");
+    const cleanupAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    const intent = await createDocumentUploadIntent({
+      documentId,
+      workspaceId,
+      userId: user.id,
+      storageProvider: storage.provider,
+      objectKey,
+      cleanupAt,
+    });
+
+    try {
+      await expect(
+        prisma.document.findUniqueOrThrow({
+          where: { id: documentId },
+          include: { file: true, job: true },
+        }),
+      ).resolves.toMatchObject({
+        status: "UPLOADED",
+        title: "Upload pending",
+        originalFileName: "pending",
+        failureCode: "DOCUMENT_UPLOAD_INTENT_PENDING",
+        deletedAt: cleanupAt,
+        job: null,
+        file: {
+          storageProvider: storage.provider,
+          objectKey,
+          verifiedMimeType: "application/octet-stream",
+          extension: "bin",
+          sizeBytes: 1n,
+          sha256: "0".repeat(64),
+        },
+      });
+      await expect(
+        requireDocumentAccess({ userId: user.id }, documentId),
+      ).rejects.toBeInstanceOf(PrivateResourceNotFoundError);
+      await expect(processDocument(documentId)).resolves.toEqual({
+        status: "not-claimed",
+      });
+      expect(
+        await prisma.auditEvent.count({
+          where: { entityId: documentId, eventType: "document.uploaded" },
+        }),
+      ).toBe(0);
+
+      await storage.put(objectKey, bytes);
+      await promoteDocumentUploadIntent(intent, {
+        title: "Intent fixture",
+        originalFileName: "intent-fixture.pdf",
+        verifiedMimeType: "application/pdf",
+        extension: "pdf",
+        sizeBytes: bytes.byteLength,
+        sha256: "d".repeat(64),
+      });
+
+      await expect(
+        prisma.document.findUniqueOrThrow({
+          where: { id: documentId },
+          include: { file: true, job: true },
+        }),
+      ).resolves.toMatchObject({
+        status: "QUEUED",
+        title: "Intent fixture",
+        originalFileName: "intent-fixture.pdf",
+        failureCode: null,
+        deletedAt: null,
+        job: { status: "QUEUED", attempts: 0 },
+        file: {
+          verifiedMimeType: "application/pdf",
+          extension: "pdf",
+          sizeBytes: BigInt(bytes.byteLength),
+          sha256: "d".repeat(64),
+        },
+      });
+      await expect(
+        requireDocumentAccess({ userId: user.id }, documentId),
+      ).resolves.toMatchObject({ id: documentId, status: "QUEUED" });
+      expect(
+        await prisma.auditEvent.count({
+          where: { entityId: documentId, eventType: "document.uploaded" },
+        }),
+      ).toBe(1);
+    } finally {
+      try {
+        await deleteDocument({ userId: user.id }, documentId);
+      } finally {
+        await storage.delete(objectKey);
+      }
+    }
+  });
+
+  it("coordinates cleanup when an upload fails before promotion", async () => {
+    const user = await prisma.user.create({
+      data: {
+        name: "Failed Upload User",
+        email: "failed-upload.integration@example.test",
+        emailVerified: true,
+      },
+    });
+    const workspaceId = await ensurePersonalWorkspace(prisma, user);
+    const documentId = crypto.randomUUID();
+    const storage = getDocumentStorage();
+    const bytes = new TextEncoder().encode("%PDF-1.7\nfailed upload");
+    const objectKey = createDocumentObjectKey(workspaceId, documentId, "pdf");
+    const intent = await createDocumentUploadIntent({
+      documentId,
+      workspaceId,
+      userId: user.id,
+      storageProvider: storage.provider,
+      objectKey,
+    });
+
+    try {
+      await storage.put(objectKey, bytes);
+      await abandonDocumentUploadIntent(intent, storage);
+
+      await expect(
+        prisma.document.findUnique({ where: { id: documentId } }),
+      ).resolves.toBeNull();
+      await expect(storage.read(objectKey)).rejects.toThrow();
+      for (const eventType of [
+        "document.upload.cleanup.requested",
+        "document.deleted",
+      ]) {
+        await expect(
+          prisma.auditEvent.count({
+            where: { actorUserId: user.id, entityId: documentId, eventType },
+          }),
+        ).resolves.toBe(1);
+      }
+    } finally {
+      await storage.delete(objectKey);
+    }
+  });
+
+  it("backs off a failed tombstone so later deletions can progress", async () => {
+    const user = await prisma.user.create({
+      data: {
+        name: "Deletion Cleanup User",
+        email: "deletion-cleanup.integration@example.test",
+        emailVerified: true,
+      },
+    });
+    const workspaceId = await ensurePersonalWorkspace(prisma, user);
+    const storage = getDocumentStorage();
+    const blockedDocumentId = crypto.randomUUID();
+    const healthyDocumentId = crypto.randomUUID();
+    const blockedKey = createDocumentObjectKey(
+      workspaceId,
+      blockedDocumentId,
+      "pdf",
+    );
+    const healthyKey = createDocumentObjectKey(
+      workspaceId,
+      healthyDocumentId,
+      "pdf",
+    );
+    await storage.put(
+      healthyKey,
+      new TextEncoder().encode("%PDF-1.7\ncleanup fixture"),
+    );
+
+    try {
+      const baseDocument = {
+        workspaceId,
+        uploadedById: user.id,
+        title: "Deletion pending",
+        originalFileName: "deleted",
+        status: "UPLOADED" as const,
+        failureCode: "DOCUMENT_DELETION_PENDING",
+      };
+      await prisma.document.create({
+        data: {
+          ...baseDocument,
+          id: blockedDocumentId,
+          deletedAt: new Date(Date.now() - 2 * 60 * 1000),
+          file: {
+            create: {
+              storageProvider: "s3-private-00000000000000000000",
+              objectKey: blockedKey,
+              verifiedMimeType: "application/octet-stream",
+              extension: "bin",
+              sizeBytes: 1,
+              sha256: "0".repeat(64),
+            },
+          },
+        },
+      });
+      await prisma.document.create({
+        data: {
+          ...baseDocument,
+          id: healthyDocumentId,
+          deletedAt: new Date(Date.now() - 60 * 1000),
+          file: {
+            create: {
+              storageProvider: storage.provider,
+              objectKey: healthyKey,
+              verifiedMimeType: "application/octet-stream",
+              extension: "bin",
+              sizeBytes: 1,
+              sha256: "0".repeat(64),
+            },
+          },
+        },
+      });
+
+      await expect(cleanupPendingDocumentDeletions(1)).resolves.toEqual({
+        selected: 1,
+        deleted: 0,
+        failed: 1,
+      });
+      const blocked = await prisma.document.findUniqueOrThrow({
+        where: { id: blockedDocumentId },
+        select: { deletedAt: true, failureCode: true },
+      });
+      expect(blocked.failureCode).toBe("DOCUMENT_DELETION_RETRY");
+      expect(blocked.deletedAt!.getTime()).toBeGreaterThan(Date.now());
+
+      await expect(cleanupPendingDocumentDeletions(1)).resolves.toEqual({
+        selected: 1,
+        deleted: 1,
+        failed: 0,
+      });
+      await expect(
+        prisma.document.findUnique({ where: { id: healthyDocumentId } }),
+      ).resolves.toBeNull();
+      await expect(storage.read(healthyKey)).rejects.toThrow();
+    } finally {
+      await storage.delete(healthyKey);
+      await prisma.document.deleteMany({ where: { id: blockedDocumentId } });
+    }
   });
 
   it("processes a private source into evidence and a Today action", async () => {
@@ -279,6 +540,96 @@ describe("identity and workspace persistence", () => {
         sourceDocumentId: documentId,
         sourcePageNumber: 1,
       });
+
+      const actionId = stored.actions[0]!.id;
+      await expect(
+        deleteDocument({ userId: user.id }, documentId),
+      ).resolves.toEqual({ deleted: true, pending: false });
+      await expect(getDocumentStorage().read(objectKey)).rejects.toThrow();
+      await expect(
+        prisma.document.findUnique({ where: { id: documentId } }),
+      ).resolves.toBeNull();
+      await expect(
+        prisma.actionItem.findUnique({ where: { id: actionId } }),
+      ).resolves.toBeNull();
+      for (const eventType of [
+        "document.deletion.requested",
+        "document.deleted",
+      ]) {
+        await expect(
+          prisma.auditEvent.count({
+            where: {
+              actorUserId: user.id,
+              entityId: documentId,
+              eventType,
+            },
+          }),
+        ).resolves.toBe(1);
+      }
+    } finally {
+      await getDocumentStorage().delete(objectKey);
+    }
+  });
+
+  it("invalidates a processing lease before deleting its private source", async () => {
+    const user = await prisma.user.create({
+      data: {
+        name: "Deletion Race User",
+        email: "deletion-race.integration@example.test",
+        emailVerified: true,
+      },
+    });
+    const workspaceId = await ensurePersonalWorkspace(prisma, user);
+    const documentId = crypto.randomUUID();
+    const bytes = new TextEncoder().encode("%PDF-1.7\nleased deletion fixture");
+    const objectKey = createDocumentObjectKey(workspaceId, documentId, "pdf");
+    await getDocumentStorage().put(objectKey, bytes);
+
+    try {
+      await prisma.document.create({
+        data: {
+          id: documentId,
+          workspaceId,
+          uploadedById: user.id,
+          title: "Leased analysis",
+          originalFileName: "leased.pdf",
+          status: "PROCESSING",
+          file: {
+            create: {
+              storageProvider: "local-private",
+              objectKey,
+              verifiedMimeType: "application/pdf",
+              extension: "pdf",
+              sizeBytes: bytes.byteLength,
+              sha256: "c".repeat(64),
+            },
+          },
+          job: {
+            create: {
+              status: "PROCESSING",
+              attempts: 1,
+              lockedAt: new Date(),
+              lockedBy: "leased-worker",
+            },
+          },
+        },
+      });
+
+      await expect(
+        deleteDocument({ userId: user.id }, documentId),
+      ).resolves.toEqual({ deleted: true, pending: false });
+      await expect(processDocument(documentId)).resolves.toEqual({
+        status: "not-claimed",
+      });
+      await expect(
+        prisma.document.findUnique({ where: { id: documentId } }),
+      ).resolves.toBeNull();
+      expect(
+        await prisma.actionItem.count({
+          where: { sourceDocumentId: documentId },
+        }),
+      ).toBe(0);
+      await expect(getDocumentStorage().read(objectKey)).rejects.toThrow();
     } finally {
       await getDocumentStorage().delete(objectKey);
     }

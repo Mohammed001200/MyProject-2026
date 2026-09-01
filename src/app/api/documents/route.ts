@@ -8,7 +8,13 @@ import {
   UnauthenticatedError,
   requireViewer,
 } from "@/server/auth/authorization";
-import { getPrisma } from "@/server/db/prisma";
+import {
+  abandonDocumentUploadIntent,
+  createDocumentUploadIntent,
+  DOCUMENT_UPLOAD_INTENT_TTL_MS,
+  promoteDocumentUploadIntent,
+  type DocumentUploadIntent,
+} from "@/server/uploads/document-intent";
 import { isConfigurationError } from "@/server/env";
 import { processDocument } from "@/server/jobs/process-document";
 import { createDocumentObjectKey, getDocumentStorage } from "@/server/storage";
@@ -28,7 +34,6 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   try {
     const viewer = await requireViewer();
-    const prisma = getPrisma();
     await consumeUploadAttempt({
       userId: viewer.session.user.id,
       workspaceId: viewer.workspaceId,
@@ -50,48 +55,27 @@ export async function POST(request: Request) {
       validated.extension,
     );
     const storage = getDocumentStorage();
-    await storage.put(objectKey, validated.bytes);
-
+    const intent = {
+      documentId,
+      workspaceId: viewer.workspaceId,
+      userId: viewer.session.user.id,
+      storageProvider: storage.provider,
+      objectKey,
+      cleanupAt: new Date(Date.now() + DOCUMENT_UPLOAD_INTENT_TTL_MS),
+    } satisfies DocumentUploadIntent;
     try {
-      await prisma.$transaction(async (transaction) => {
-        await transaction.document.create({
-          data: {
-            id: documentId,
-            workspaceId: viewer.workspaceId,
-            uploadedById: viewer.session.user.id,
-            title: validated.originalFileName.replace(/\.[^.]+$/, ""),
-            originalFileName: validated.originalFileName,
-            status: "QUEUED",
-            file: {
-              create: {
-                storageProvider: "local-private",
-                objectKey,
-                verifiedMimeType: validated.mimeType,
-                extension: validated.extension,
-                sizeBytes: validated.sizeBytes,
-                sha256: validated.sha256,
-              },
-            },
-            job: { create: { status: "QUEUED" } },
-          },
-        });
-
-        await transaction.auditEvent.create({
-          data: {
-            workspaceId: viewer.workspaceId,
-            actorUserId: viewer.session.user.id,
-            eventType: "document.uploaded",
-            entityType: "document",
-            entityId: documentId,
-            metadata: {
-              mimeType: validated.mimeType,
-              sizeBytes: validated.sizeBytes,
-            },
-          },
-        });
+      await createDocumentUploadIntent(intent);
+      await storage.put(objectKey, validated.bytes);
+      await promoteDocumentUploadIntent(intent, {
+        title: validated.originalFileName.replace(/\.[^.]+$/, ""),
+        originalFileName: validated.originalFileName,
+        verifiedMimeType: validated.mimeType,
+        extension: validated.extension,
+        sizeBytes: validated.sizeBytes,
+        sha256: validated.sha256,
       });
     } catch (error) {
-      await storage.delete(objectKey);
+      await abandonDocumentUploadIntent(intent, storage);
       throw error;
     }
 

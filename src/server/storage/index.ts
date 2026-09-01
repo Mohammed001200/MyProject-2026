@@ -1,9 +1,10 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
+import { requireStorageEnvironment } from "@/server/env";
 import { LocalPrivateDocumentStorage } from "@/server/storage/local";
+import { S3PrivateDocumentStorage } from "@/server/storage/s3";
 import type { DocumentStorage } from "@/server/storage/types";
-import { isExplicitCiE2EEnvironment } from "@/server/testing/environment";
 
 let storageInstance: DocumentStorage | undefined;
 
@@ -18,18 +19,10 @@ export function createDocumentObjectKey(
 export function getDocumentStorage(): DocumentStorage {
   if (storageInstance) return storageInstance;
 
-  const driver = process.env.CIVORA_STORAGE_DRIVER?.trim() || "local";
-  if (driver !== "local") {
-    throw new Error(`Unsupported document storage driver: ${driver}`);
-  }
-  if (process.env.NODE_ENV === "production" && !isExplicitCiE2EEnvironment()) {
-    throw new Error(
-      "Local document storage is forbidden in production; configure a private durable adapter.",
-    );
-  }
-
-  storageInstance = new LocalPrivateDocumentStorage(
-    process.env.LOCAL_STORAGE_ROOT?.trim() || ".civora-data",
-  );
+  const configuration = requireStorageEnvironment();
+  storageInstance =
+    configuration.driver === "local"
+      ? new LocalPrivateDocumentStorage(configuration.root)
+      : new S3PrivateDocumentStorage(configuration);
   return storageInstance;
 }

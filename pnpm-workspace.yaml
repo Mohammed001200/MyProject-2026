@@ -7,4 +7,5 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - lucide-react@1.38.0
 overrides:
+  "@aws-sdk/credential-provider-node": 3.972.81
   deepmerge-ts: 8.0.2

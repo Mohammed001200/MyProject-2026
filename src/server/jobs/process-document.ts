@@ -9,6 +9,7 @@ import {
 import { applyAnalysisSafetyPolicy } from "@/server/ai/safety-policy";
 import { getPrisma } from "@/server/db/prisma";
 import { getDocumentStorage } from "@/server/storage";
+import { assertDocumentStorageProvider } from "@/server/storage/types";
 
 function atNoonUtc(value: string | null) {
   return value ? new Date(`${value}T12:00:00.000Z`) : null;
@@ -80,7 +81,9 @@ export async function processDocument(documentId: string) {
 
     if (!document.file) throw new Error("Document file metadata is missing");
 
-    const bytes = await getDocumentStorage().read(document.file.objectKey);
+    const storage = getDocumentStorage();
+    assertDocumentStorageProvider(storage, document.file.storageProvider);
+    const bytes = await storage.read(document.file.objectKey);
     const analysis = await getDocumentAnalysisProvider().analyze({
       bytes,
       mimeType: document.file.verifiedMimeType as

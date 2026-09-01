@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { cleanupPendingDocumentDeletions } from "@/server/documents/delete-document";
 import { processAvailableDocumentJobs } from "@/server/jobs/process-document";
 
 export const runtime = "nodejs";
@@ -29,8 +30,14 @@ export async function POST(request: Request) {
     return Response.json({ code: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const result = await processAvailableDocumentJobs();
-  return Response.json(result, {
-    headers: { "Cache-Control": "private, no-store, max-age=0" },
-  });
+  const [processing, deletions] = await Promise.all([
+    processAvailableDocumentJobs(),
+    cleanupPendingDocumentDeletions(),
+  ]);
+  return Response.json(
+    { processing, deletions },
+    {
+      headers: { "Cache-Control": "private, no-store, max-age=0" },
+    },
+  );
 }

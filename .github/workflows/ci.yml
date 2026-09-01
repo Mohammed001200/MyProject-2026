@@ -89,6 +89,7 @@ jobs:
       BETTER_AUTH_URL: http://127.0.0.1:3000
       CIVORA_INTEGRATION_TESTS: "true"
       CIVORA_AI_DRIVER: integration-test
+      CIVORA_E2E_DATABASE: "true"
       LOCAL_STORAGE_ROOT: .civora-data/integration
     steps:
       - name: Check out repository
@@ -178,7 +179,6 @@ jobs:
       - name: Run authenticated document-to-action journey
         run: >-
           pnpm exec playwright test tests/e2e/critical-path.spec.ts
-          --project=desktop-edge
 
       - name: Upload browser report on failure
         if: failure()

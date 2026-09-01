@@ -44,12 +44,13 @@ Trust boundaries exist between the browser and Next.js server, server and Postgr
 - Better Auth with 12-character minimum passwords, secure production cookies, origin controls, rate limits, safe auth errors, and no committed secrets.
 - Workspace membership as the tenant boundary, centralized non-enumerating record policies, idempotent personal-workspace creation, and metadata-only bootstrap audit events.
 - PostgreSQL migration constraints plus isolated CI tests for real signup/signin and cross-workspace denial.
-- Bounded upload-body streaming before multipart parsing, allowlisted byte signatures, opaque private keys, SHA-256 metadata, and atomic per-user attempt limiting.
+- Durable hidden upload intents, bounded upload-body streaming before multipart parsing, allowlisted byte signatures, opaque private keys, SHA-256 metadata, and atomic per-user attempt limiting.
+- Location-bound S3 provider identities, never-versioned bucket checks, bounded object reads, server-side encryption, and coordinated deletion retries.
 - Versioned structured AI output with provider storage disabled, prompt-injection separation, compact provenance, confidence thresholds, and automatic-action suppression when review is required.
 - Fenced document-job leases, bounded retries, stale-lock recovery, and a secret-protected scheduler boundary.
 - PostgreSQL-backed browser coverage for signup, onboarding, upload, processing, evidence, source download, Today completion, and cross-tenant document/file/action denial.
 
-These controls do not make the application safe for personal documents. Production private storage, deployed durable scheduling, live-provider validation, email verification/recovery, deletion, monitoring, and operational review remain incomplete.
+These controls do not make the application safe for personal documents. The production storage adapter and document deletion flow exist, but deployment bucket policy/credentials, durable scheduling, live-provider validation, email verification/recovery, account deletion, monitoring, and operational review remain incomplete.
 
 ## Mandatory gates before real uploads
 

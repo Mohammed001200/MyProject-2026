@@ -32,15 +32,17 @@ This file records implementation truth. A checked item is backed by running code
 ## Milestone 3 — real document-to-action vertical slice (MVP core)
 
 - [x] Private storage interface and fail-closed local development adapter outside public assets.
-- [ ] Production private object-storage adapter and deployment credentials.
-- [x] Authenticated upload with bounded request streaming, file byte/signature checks, safe key, hash, atomic attempt limit, and audit events.
+- [x] Production S3-compatible private object-storage adapter with bounded reads, location binding, never-versioned deletion checks, and fail-closed configuration.
+- [ ] Configure and verify the deployment bucket, access policy, never-versioned status, encryption, lifecycle, and credentials.
+- [x] Authenticated upload with a durable hidden intent, bounded request streaming, file byte/signature checks, safe key, hash, atomic attempt limit, and audit events.
 - [x] Persisted `QUEUED → PROCESSING → READY | NEEDS_REVIEW | FAILED` lifecycle.
 - [x] Database job boundary with lease fencing, retry state, stale-lock recovery, request-local development execution, and protected scheduler endpoint.
 - [ ] Deploy and verify the external production scheduler/worker that invokes the job endpoint.
 - [x] Official OpenAI Responses adapter with strict structured output, prompt-injection separation, provenance, confidence, safety gating, and versioning.
 - [ ] Verify the OpenAI adapter with approved live credentials and model configuration.
 - [x] Persisted document detail, authenticated source download, generated actions, completion/reopen API, source linkage, and real Today prioritization.
-- [ ] Document search, coordinated deletion, manual action creation, and dismiss UI.
+- [x] Workspace-scoped document search and coordinated source/derivative deletion with worker fencing.
+- [ ] Manual action creation and dismiss UI.
 - [x] PostgreSQL integration coverage plus authenticated browser E2E and cross-tenant route/file/action denial.
 
 ## MVP quality gate
@@ -71,3 +73,4 @@ CIVORA Family, email ingestion, calendar providers, contract-change detection, s
 - **2026-08-31 — Foundation started:** repository verified and isolated on `codex/civora-foundation`; official Next.js scaffold established; original visual system, marketing experience, application preview surfaces, core documentation, file policy, prioritization logic, and first unit tests created. External credentials are not needed for this milestone and no real-user functionality is claimed.
 - **2026-08-31 — Identity foundation:** Prisma migration, Better Auth, automatic personal workspaces, persisted onboarding, protected workspace UI, authorization policies, and PostgreSQL-backed CI tests implemented. Local PostgreSQL and production credentials remain external blockers.
 - **2026-08-31 — Document-to-action slice:** bounded private upload, durable/recoverable job state, structured OpenAI adapter, safety-gated evidence/actions, Today completion, authorized source retrieval, additive migration upgrade verification, and full PostgreSQL-backed browser flow implemented. Production storage/worker deployment and live AI credentials remain explicit blockers.
+- **2026-09-01 — Core privacy and retrieval:** crash-recoverable upload intents, location-bound/version-safe S3 architecture, real workspace document search, coordinated deletion with fair retries, worker-race protection, and end-to-end delete verification added. Deployment credentials and live-provider checks remain external blockers.

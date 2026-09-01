@@ -6,6 +6,7 @@ import {
   requireViewer,
 } from "@/server/auth/authorization";
 import { getDocumentStorage } from "@/server/storage";
+import { assertDocumentStorageProvider } from "@/server/storage/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +23,9 @@ export async function GET(_request: Request, { params }: SourceRouteProps) {
     );
     if (!document.file) throw new PrivateResourceNotFoundError();
 
-    const bytes = await getDocumentStorage().read(document.file.objectKey);
+    const storage = getDocumentStorage();
+    assertDocumentStorageProvider(storage, document.file.storageProvider);
+    const bytes = await storage.read(document.file.objectKey);
     return new Response(Buffer.from(bytes), {
       headers: {
         "Cache-Control": "private, no-store, max-age=0",
