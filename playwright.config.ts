@@ -1,12 +1,13 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const databaseBackedE2E = process.env.CIVORA_E2E_DATABASE === "true";
+
 export default defineConfig({
   testDir: "./tests/e2e",
-  fullyParallel: true,
-  workers: 2,
+  fullyParallel: !databaseBackedE2E,
+  workers: databaseBackedE2E ? 1 : 2,
   forbidOnly: true,
-  retries:
-    process.env.CIVORA_E2E_DATABASE === "true" ? 0 : process.env.CI ? 2 : 0,
+  retries: databaseBackedE2E ? 0 : process.env.CI ? 2 : 0,
   reporter: process.env.CI ? "github" : "list",
   use: {
     baseURL: "http://127.0.0.1:3000",
