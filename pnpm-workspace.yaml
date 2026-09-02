@@ -9,3 +9,4 @@ minimumReleaseAgeExclude:
 overrides:
   "@aws-sdk/credential-provider-node": 3.972.81
   deepmerge-ts: 8.0.2
+  mysql2: 3.23.1
