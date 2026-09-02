@@ -26,6 +26,38 @@ test-results/
 artifacts/
 .civora-data/
 
+# Local hosting and build-tool state
+.vercel/
+.turbo/
+
+# Private keys and credential bundles
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Local credentials and machine configuration
+credentials.json
+service-account*.json
+.aws/
+.ssh/
+.npmrc
+.pypirc
+*.local
+
+# Local databases, dumps, backups, editors, and OS metadata
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.bak
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
 # nyc test coverage
 .nyc_output
 

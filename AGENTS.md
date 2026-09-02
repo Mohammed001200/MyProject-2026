@@ -46,6 +46,14 @@ Authorization must occur before file access, search, AI context construction, ex
 
 Never commit secrets or personal data. Add configuration names to `.env.example`; keep values local. Do not put secrets in `NEXT_PUBLIC_*` variables.
 
+## Git and GitHub workflow
+
+Follow `CONTRIBUTING.md`. Keep `main` deployable, never develop or force-push
+directly on it, and merge only through a reviewed pull request with every
+required CI job green. Use short-lived Conventional Commit branches, preserve
+stable remote checkpoints before risky work, and never commit secrets or local
+runtime data.
+
 ## Quality gates
 
 Use strict TypeScript and avoid `any`. Keep deterministic domain rules independently testable. Before each stable milestone run:
