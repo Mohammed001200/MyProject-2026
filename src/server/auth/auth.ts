@@ -2,7 +2,10 @@ import "server-only";
 
 import { prismaAdapter } from "@better-auth/prisma-adapter";
 import { betterAuth } from "better-auth";
-import { baseAuthOptions } from "@/server/auth/options";
+import {
+  baseAuthOptions,
+  getAuthRateLimitOptions,
+} from "@/server/auth/options";
 import { getPrisma } from "@/server/db/prisma";
 import { requireAuthEnvironment } from "@/server/env";
 import { ensurePersonalWorkspace } from "@/server/workspaces/service";
@@ -16,6 +19,7 @@ function createAuth() {
     secret: environment.secret,
     baseURL: environment.baseUrl,
     trustedOrigins: [environment.baseUrl],
+    rateLimit: getAuthRateLimitOptions(),
     database: prismaAdapter(prisma, {
       provider: "postgresql",
       transaction: true,
