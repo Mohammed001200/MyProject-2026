@@ -5,6 +5,10 @@ import {
   requireDocumentAccess,
   requireViewer,
 } from "@/server/auth/authorization";
+import {
+  assertDocumentSourceIntegrity,
+  DocumentSourceIntegrityError,
+} from "@/server/documents/source-integrity";
 import { getDocumentStorage } from "@/server/storage";
 import { assertDocumentStorageProvider } from "@/server/storage/types";
 
@@ -12,6 +16,16 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type SourceRouteProps = { params: Promise<{ id: string }> };
+
+function safeError(code: string, status: number) {
+  return Response.json(
+    { code },
+    {
+      status,
+      headers: { "Cache-Control": "private, no-store, max-age=0" },
+    },
+  );
+}
 
 export async function GET(_request: Request, { params }: SourceRouteProps) {
   try {
@@ -26,6 +40,7 @@ export async function GET(_request: Request, { params }: SourceRouteProps) {
     const storage = getDocumentStorage();
     assertDocumentStorageProvider(storage, document.file.storageProvider);
     const bytes = await storage.read(document.file.objectKey);
+    assertDocumentSourceIntegrity(bytes, document.file);
     return new Response(Buffer.from(bytes), {
       headers: {
         "Cache-Control": "private, no-store, max-age=0",
@@ -38,11 +53,14 @@ export async function GET(_request: Request, { params }: SourceRouteProps) {
     });
   } catch (error) {
     if (error instanceof UnauthenticatedError) {
-      return Response.json({ code: error.code }, { status: 401 });
+      return safeError(error.code, 401);
     }
     if (error instanceof PrivateResourceNotFoundError) {
-      return Response.json({ code: error.code }, { status: 404 });
+      return safeError(error.code, 404);
     }
-    return Response.json({ code: "SOURCE_READ_FAILED" }, { status: 500 });
+    if (error instanceof DocumentSourceIntegrityError) {
+      return safeError(error.code, 409);
+    }
+    return safeError("SOURCE_READ_FAILED", 500);
   }
 }

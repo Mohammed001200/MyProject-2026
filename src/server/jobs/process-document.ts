@@ -8,6 +8,10 @@ import {
 } from "@/server/ai/provider";
 import { applyAnalysisSafetyPolicy } from "@/server/ai/safety-policy";
 import { getPrisma } from "@/server/db/prisma";
+import {
+  assertDocumentSourceIntegrity,
+  DocumentSourceIntegrityError,
+} from "@/server/documents/source-integrity";
 import { getDocumentStorage } from "@/server/storage";
 import { assertDocumentStorageProvider } from "@/server/storage/types";
 
@@ -42,6 +46,10 @@ export async function processDocument(documentId: string) {
   const prisma = getPrisma();
   const workerId = `next-after-${randomUUID()}`;
   const now = new Date();
+  let failureAuditContext: {
+    workspaceId: string;
+    actorUserId: string;
+  } | null = null;
 
   const claim = await prisma.documentJob.updateMany({
     where: {
@@ -80,10 +88,15 @@ export async function processDocument(documentId: string) {
     });
 
     if (!document.file) throw new Error("Document file metadata is missing");
+    failureAuditContext = {
+      workspaceId: document.workspaceId,
+      actorUserId: document.uploadedById,
+    };
 
     const storage = getDocumentStorage();
     assertDocumentStorageProvider(storage, document.file.storageProvider);
     const bytes = await storage.read(document.file.objectKey);
+    assertDocumentSourceIntegrity(bytes, document.file);
     const analysis = await getDocumentAnalysisProvider().analyze({
       bytes,
       mimeType: document.file.verifiedMimeType as
@@ -206,11 +219,13 @@ export async function processDocument(documentId: string) {
     }
 
     const errorCode =
-      error instanceof AnalysisConfigurationError
+      error instanceof AnalysisConfigurationError ||
+      error instanceof DocumentSourceIntegrityError
         ? error.code
         : "DOCUMENT_ANALYSIS_FAILED";
     const willRetry =
       !(error instanceof AnalysisConfigurationError) &&
+      !(error instanceof DocumentSourceIntegrityError) &&
       claimedJob.attempts < MAX_PROCESSING_ATTEMPTS;
 
     try {
@@ -237,9 +252,27 @@ export async function processDocument(documentId: string) {
               ? null
               : errorCode === "AI_NOT_CONFIGURED"
                 ? "Document analysis is not configured in this environment."
-                : "Document analysis failed safely. The source was retained.",
+                : errorCode === "DOCUMENT_SOURCE_INTEGRITY_FAILED"
+                  ? "The stored source no longer matches the verified upload. Analysis stopped safely."
+                  : "Document analysis failed safely. The source was retained.",
           },
         });
+
+        if (
+          error instanceof DocumentSourceIntegrityError &&
+          failureAuditContext
+        ) {
+          await transaction.auditEvent.create({
+            data: {
+              workspaceId: failureAuditContext.workspaceId,
+              actorUserId: failureAuditContext.actorUserId,
+              eventType: "document.source.integrity_failed",
+              entityType: "document",
+              entityId: documentId,
+              metadata: { code: error.code },
+            },
+          });
+        }
       });
     } catch (releaseError) {
       if (releaseError instanceof DocumentJobLeaseLostError) {

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Prisma } from "@/generated/prisma/client";
 import {
@@ -41,6 +42,10 @@ if (new URL(databaseUrl).pathname !== "/civora_test") {
 }
 
 const prisma = getPrisma();
+
+function sha256(bytes: Uint8Array) {
+  return createHash("sha256").update(bytes).digest("hex");
+}
 
 async function resetTestDatabase() {
   await prisma.actionItem.deleteMany();
@@ -509,7 +514,7 @@ describe("identity and workspace persistence", () => {
               verifiedMimeType: "application/pdf",
               extension: "pdf",
               sizeBytes: bytes.byteLength,
-              sha256: "a".repeat(64),
+              sha256: sha256(bytes),
             },
           },
           job: { create: {} },
@@ -566,6 +571,90 @@ describe("identity and workspace persistence", () => {
           }),
         ).resolves.toBe(1);
       }
+    } finally {
+      await getDocumentStorage().delete(objectKey);
+    }
+  });
+
+  it("fails terminally when the stored source no longer matches its verified hash", async () => {
+    const user = await prisma.user.create({
+      data: {
+        name: "Integrity User",
+        email: "integrity.integration@example.test",
+        emailVerified: true,
+      },
+    });
+    const workspaceId = await ensurePersonalWorkspace(prisma, user);
+    const documentId = crypto.randomUUID();
+    const expectedBytes = new TextEncoder().encode(
+      "%PDF-1.7\nexpected integrity source",
+    );
+    const storedBytes = new TextEncoder().encode(
+      "%PDF-1.7\nmodified integrity source",
+    );
+    const objectKey = createDocumentObjectKey(workspaceId, documentId, "pdf");
+    await getDocumentStorage().put(objectKey, storedBytes);
+
+    try {
+      await prisma.document.create({
+        data: {
+          id: documentId,
+          workspaceId,
+          uploadedById: user.id,
+          title: "Integrity fixture",
+          originalFileName: "integrity.pdf",
+          status: "QUEUED",
+          file: {
+            create: {
+              storageProvider: "local-private",
+              objectKey,
+              verifiedMimeType: "application/pdf",
+              extension: "pdf",
+              sizeBytes: storedBytes.byteLength,
+              sha256: sha256(expectedBytes),
+            },
+          },
+          job: { create: {} },
+        },
+      });
+
+      await expect(processDocument(documentId)).resolves.toEqual({
+        status: "failed",
+        errorCode: "DOCUMENT_SOURCE_INTEGRITY_FAILED",
+      });
+
+      await expect(
+        prisma.document.findUniqueOrThrow({
+          where: { id: documentId },
+          select: {
+            status: true,
+            failureCode: true,
+            failureMessage: true,
+            job: { select: { status: true, attempts: true } },
+            _count: { select: { analyses: true, actions: true } },
+          },
+        }),
+      ).resolves.toMatchObject({
+        status: "FAILED",
+        failureCode: "DOCUMENT_SOURCE_INTEGRITY_FAILED",
+        failureMessage:
+          "The stored source no longer matches the verified upload. Analysis stopped safely.",
+        job: { status: "FAILED", attempts: 1 },
+        _count: { analyses: 0, actions: 0 },
+      });
+      await expect(
+        prisma.auditEvent.count({
+          where: {
+            workspaceId,
+            actorUserId: user.id,
+            entityId: documentId,
+            eventType: "document.source.integrity_failed",
+          },
+        }),
+      ).resolves.toBe(1);
+      await expect(processDocument(documentId)).resolves.toEqual({
+        status: "not-claimed",
+      });
     } finally {
       await getDocumentStorage().delete(objectKey);
     }
@@ -665,7 +754,7 @@ describe("identity and workspace persistence", () => {
               verifiedMimeType: "application/pdf",
               extension: "pdf",
               sizeBytes: bytes.byteLength,
-              sha256: "b".repeat(64),
+              sha256: sha256(bytes),
             },
           },
           job: {
