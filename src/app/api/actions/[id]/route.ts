@@ -8,32 +8,41 @@ import {
 } from "@/server/auth/authorization";
 import { getPrisma } from "@/server/db/prisma";
 
-const updateSchema = z.object({ status: z.enum(["OPEN", "COMPLETED"]) });
+const updateSchema = z.strictObject({
+  status: z.enum(["OPEN", "COMPLETED", "DISMISSED"]),
+});
+const eventTypes = {
+  OPEN: "action.reopened",
+  COMPLETED: "action.completed",
+  DISMISSED: "action.dismissed",
+} as const;
 type ActionRouteProps = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: Request, { params }: ActionRouteProps) {
   try {
     const viewer = await requireViewer();
     const { id } = await params;
-    const input = updateSchema.safeParse(await request.json());
+    const input = updateSchema.safeParse(
+      await request.json().catch(() => null),
+    );
     if (!input.success)
       return Response.json({ code: "INVALID_ACTION_UPDATE" }, { status: 400 });
     const action = await requireActionAccess(principalFromViewer(viewer), id);
-    const completed = input.data.status === "COMPLETED";
+    const now = new Date();
     await getPrisma().$transaction([
       getPrisma().actionItem.update({
         where: { id: action.id },
         data: {
           status: input.data.status,
-          completedAt: completed ? new Date() : null,
-          dismissedAt: null,
+          completedAt: input.data.status === "COMPLETED" ? now : null,
+          dismissedAt: input.data.status === "DISMISSED" ? now : null,
         },
       }),
       getPrisma().auditEvent.create({
         data: {
           workspaceId: action.workspaceId,
           actorUserId: viewer.session.user.id,
-          eventType: completed ? "action.completed" : "action.reopened",
+          eventType: eventTypes[input.data.status],
           entityType: "action",
           entityId: action.id,
         },

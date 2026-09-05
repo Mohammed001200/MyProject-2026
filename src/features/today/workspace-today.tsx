@@ -3,7 +3,11 @@
 import { CalendarDays, Check, FileText, Plus } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useRef, useState, useTransition } from "react";
+
+type ActionStatus = "OPEN" | "COMPLETED" | "DISMISSED";
+const views = { OPEN: "Open", COMPLETED: "Completed", DISMISSED: "Dismissed" };
 
 type TodayAction = {
   id: string;
@@ -18,20 +22,45 @@ type TodayAction = {
 export function WorkspaceToday({
   firstName,
   initialActions,
+  status = "OPEN",
 }: {
   firstName: string;
   initialActions: TodayAction[];
+  status?: ActionStatus;
 }) {
-  const [actions, setActions] = useState(initialActions);
+  const router = useRouter();
+  const [refreshing, startTransition] = useTransition();
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
+  const inFlight = useRef(false);
+  const busy = pendingId !== null || refreshing;
 
-  async function complete(id: string) {
-    const response = await fetch(`/api/actions/${id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ status: "COMPLETED" }),
-    });
-    if (response.ok)
-      setActions((current) => current.filter((action) => action.id !== id));
+  async function updateStatus(id: string, nextStatus: ActionStatus) {
+    if (inFlight.current || refreshing) return;
+    inFlight.current = true;
+    setPendingId(id);
+    setError(null);
+    setNotice("");
+    try {
+      const response = await fetch(`/api/actions/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      if (!response.ok) throw new Error("Action update rejected");
+      setNotice(
+        nextStatus === "OPEN"
+          ? "Action reopened. Find it under Open."
+          : `Action ${nextStatus.toLowerCase()}. You can reopen it from ${views[nextStatus]}.`,
+      );
+      startTransition(() => router.refresh());
+    } catch {
+      setError("The action could not be updated. Please try again.");
+    } finally {
+      inFlight.current = false;
+      setPendingId(null);
+    }
   }
 
   return (
@@ -56,21 +85,51 @@ export function WorkspaceToday({
           What matters, {firstName}.
         </h1>
         <p className="mt-4 text-base text-ink-soft">
-          Real actions from your authorized workspace, ordered by urgency.
+          Review what needs attention, or return to an action you have finished.
         </p>
-        <section className="mt-12 divide-y divide-line border-y border-line">
-          {actions.length === 0 ? (
+        <nav className="mt-8 flex flex-wrap gap-2" aria-label="Action status">
+          {(Object.entries(views) as [ActionStatus, string][]).map(
+            ([value, label]) => (
+              <Link
+                key={value}
+                href={`/workspace/today?status=${value}` as Route}
+                aria-current={status === value ? "page" : undefined}
+                className={`inline-flex min-h-11 items-center rounded-full px-5 text-sm font-bold no-underline ${status === value ? "bg-brand-strong text-white" : "border border-line-strong text-ink"}`}
+              >
+                {label}
+              </Link>
+            ),
+          )}
+        </nav>
+        <p role="status" className="mt-4 text-sm text-ink-soft">
+          {notice}
+        </p>
+        {error && (
+          <p role="alert" className="mt-4 text-sm text-danger">
+            {error}
+          </p>
+        )}
+        <section
+          aria-label={`${views[status]} actions`}
+          aria-busy={busy}
+          className="mt-6 divide-y divide-line border-y border-line"
+        >
+          {initialActions.length === 0 ? (
             <div className="py-14 text-center">
               <Check className="mx-auto h-7 w-7 text-brand" />
               <h2 className="mt-4 text-lg font-extrabold text-ink">
-                Nothing needs your attention.
+                {status === "OPEN"
+                  ? "Nothing needs your attention."
+                  : `No ${status.toLowerCase()} actions yet.`}
               </h2>
               <p className="mt-2 text-sm text-ink-soft">
-                New source-backed actions will appear here.
+                {status === "OPEN"
+                  ? "New source-backed actions will appear here."
+                  : "Actions you move here remain available to reopen."}
               </p>
             </div>
           ) : (
-            actions.map((action) => (
+            initialActions.map((action) => (
               <article
                 key={action.id}
                 className="grid gap-5 py-6 sm:grid-cols-[1fr_auto] sm:items-center"
@@ -107,17 +166,46 @@ export function WorkspaceToday({
                     </Link>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => complete(action.id)}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-line-strong px-4 text-sm font-bold text-ink"
-                >
-                  <Check className="h-4 w-4" /> Complete
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  {status === "OPEN" ? (
+                    <>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => updateStatus(action.id, "COMPLETED")}
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-line-strong px-4 text-sm font-bold text-ink disabled:opacity-50"
+                      >
+                        <Check className="h-4 w-4" /> Complete
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => updateStatus(action.id, "DISMISSED")}
+                        className="min-h-11 rounded-full px-4 text-sm font-bold text-ink-soft disabled:opacity-50"
+                      >
+                        Dismiss
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => updateStatus(action.id, "OPEN")}
+                      className="min-h-11 rounded-full border border-line-strong px-4 text-sm font-bold text-ink disabled:opacity-50"
+                    >
+                      Reopen
+                    </button>
+                  )}
+                </div>
               </article>
             ))
           )}
         </section>
+        {initialActions.length === 100 && (
+          <p className="mt-4 text-xs text-ink-faint">
+            Showing the first 100 {status.toLowerCase()} actions.
+          </p>
+        )}
       </div>
     </main>
   );

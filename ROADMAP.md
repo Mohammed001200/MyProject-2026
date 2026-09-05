@@ -42,7 +42,8 @@ This file records implementation truth. A checked item is backed by running code
 - [ ] Verify the OpenAI adapter with approved live credentials and model configuration.
 - [x] Persisted document detail, authenticated source download, generated actions, completion/reopen API, source linkage, and real Today prioritization.
 - [x] Workspace-scoped document search and coordinated source/derivative deletion with worker fencing.
-- [ ] Manual action creation and dismiss UI.
+- [x] Persisted Open/Completed/Dismissed views on Today, completion/dismissal/reopen controls, source links, and recoverable request errors.
+- [ ] Manual action creation and editing.
 - [x] PostgreSQL integration coverage plus authenticated browser E2E and cross-tenant route/file/action denial.
 
 ## MVP quality gate

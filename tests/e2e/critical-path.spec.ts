@@ -188,6 +188,29 @@ test.describe("authenticated critical path", () => {
       page.getByRole("heading", { name: "Nothing needs your attention." }),
     ).toBeVisible();
 
+    // Status views must survive navigation and reload, not only local state.
+    await page.getByRole("link", { name: "Completed", exact: true }).click();
+    await expect(action).toBeVisible();
+    await page.reload();
+    await expect(action).toBeVisible();
+    await action.getByRole("button", { name: "Reopen" }).click();
+    await expect(action).toBeHidden();
+    await page.getByRole("link", { name: "Open", exact: true }).click();
+    await expect(action).toBeVisible();
+    await action.getByRole("button", { name: "Dismiss", exact: true }).click();
+    await expect(action).toBeHidden();
+    await page.getByRole("link", { name: "Dismissed", exact: true }).click();
+    await page.reload();
+    await expect(action).toBeVisible();
+    await expect(
+      action.getByRole("link", { name: "Fictional information request" }),
+    ).toHaveAttribute("href", `/workspace/documents/${upload.documentId}`);
+    await action.getByRole("button", { name: "Reopen" }).click();
+    await expect(action).toBeHidden();
+    await page.getByRole("link", { name: "Open", exact: true }).click();
+    await action.getByRole("button", { name: "Complete" }).click();
+    await expect(action).toBeHidden();
+
     await page.goto("/workspace/documents?q=Fictional");
     const libraryDocument = page.getByRole("article").filter({
       has: page.getByRole("heading", {
