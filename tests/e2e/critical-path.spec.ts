@@ -2,6 +2,24 @@ import { expect, test, type Page } from "@playwright/test";
 
 const password = "correct-horse-battery-staple";
 
+async function openActionView(
+  page: Page,
+  status: "OPEN" | "COMPLETED" | "DISMISSED",
+) {
+  const labels = {
+    OPEN: "Open",
+    COMPLETED: "Completed",
+    DISMISSED: "Dismissed",
+  };
+  await page.getByRole("link", { name: labels[status], exact: true }).click();
+  // A Next.js link click can finish before client navigation commits. Reloading
+  // immediately would cancel it and reload the previous status view instead.
+  await expect(page).toHaveURL(`/workspace/today?status=${status}`);
+  await expect(
+    page.getByRole("link", { name: labels[status], exact: true }),
+  ).toHaveAttribute("aria-current", "page");
+}
+
 async function createAccountAndOnboard(
   page: Page,
   account: { email: string; name: string },
@@ -189,17 +207,17 @@ test.describe("authenticated critical path", () => {
     ).toBeVisible();
 
     // Status views must survive navigation and reload, not only local state.
-    await page.getByRole("link", { name: "Completed", exact: true }).click();
+    await openActionView(page, "COMPLETED");
     await expect(action).toBeVisible();
     await page.reload();
     await expect(action).toBeVisible();
     await action.getByRole("button", { name: "Reopen" }).click();
     await expect(action).toBeHidden();
-    await page.getByRole("link", { name: "Open", exact: true }).click();
+    await openActionView(page, "OPEN");
     await expect(action).toBeVisible();
     await action.getByRole("button", { name: "Dismiss", exact: true }).click();
     await expect(action).toBeHidden();
-    await page.getByRole("link", { name: "Dismissed", exact: true }).click();
+    await openActionView(page, "DISMISSED");
     await page.reload();
     await expect(action).toBeVisible();
     await expect(
@@ -207,7 +225,7 @@ test.describe("authenticated critical path", () => {
     ).toHaveAttribute("href", `/workspace/documents/${upload.documentId}`);
     await action.getByRole("button", { name: "Reopen" }).click();
     await expect(action).toBeHidden();
-    await page.getByRole("link", { name: "Open", exact: true }).click();
+    await openActionView(page, "OPEN");
     await action.getByRole("button", { name: "Complete" }).click();
     await expect(action).toBeHidden();
 

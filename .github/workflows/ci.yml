@@ -2,7 +2,18 @@ name: CIVORA quality
 
 on:
   push:
-    branches: [main, "codex/**"]
+    branches:
+      [
+        main,
+        "codex/**",
+        "feat/**",
+        "fix/**",
+        "refactor/**",
+        "test/**",
+        "chore/**",
+        "docs/**",
+        "security/**",
+      ]
   pull_request:
     branches: [main]
 
@@ -67,12 +78,23 @@ jobs:
       - name: Browser smoke tests
         run: pnpm test:e2e
 
+      - name: Save desktop and mobile previews
+        if: success()
+        uses: actions/upload-artifact@v6
+        with:
+          name: civora-ui-previews
+          path: artifacts/ui/
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Upload browser report on failure
         if: failure()
         uses: actions/upload-artifact@v6
         with:
           name: playwright-report
-          path: playwright-report/
+          path: |
+            playwright-report/
+            test-results/
           if-no-files-found: ignore
           retention-days: 7
 
@@ -195,6 +217,8 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: critical-path-playwright-report
-          path: playwright-report/
+          path: |
+            playwright-report/
+            test-results/
           if-no-files-found: ignore
           retention-days: 7
