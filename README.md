@@ -20,6 +20,22 @@ Open [http://localhost:3000](http://localhost:3000). The product preview starts 
 
 On machines where Corepack shims cannot be installed globally, prefix pnpm commands with `corepack` as shown above.
 
+## Container deployment
+
+The root `Dockerfile` builds the locked application and generates its Prisma
+client, then starts Next.js as a non-root user on `PORT` (default `3000`).
+The build does not require live database or AI credentials. `.dockerignore`
+excludes local secrets, uploaded documents, test artifacts, and generated files.
+
+With no runtime credentials, only the fictional product preview is available;
+authentication remains disabled. For a real workspace, configure the services
+listed under Environment, apply migrations before enabling traffic, and verify
+the live document-to-action flow. Never use the deterministic CI AI in a deployment.
+
+Deployment status on 2026-09-12: Railway rejected project creation because the
+account trial has expired. No new service or online deployment was created.
+The Docker build has not yet been run by a container host.
+
 ## Quality commands
 
 ```bash
