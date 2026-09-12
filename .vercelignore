@@ -1,0 +1,10 @@
+.git
+.next
+.civora-data
+.env
+.env.*
+artifacts
+test-results
+playwright-report
+coverage
+*.log

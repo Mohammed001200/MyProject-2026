@@ -20,6 +20,19 @@ Open [http://localhost:3000](http://localhost:3000). The product preview starts 
 
 On machines where Corepack shims cannot be installed globally, prefix pnpm commands with `corepack` as shown above.
 
+## Vercel preview
+
+`vercel.json` pins installation to the repository's Corepack/pnpm version and
+generates Prisma before the Next.js build. The build-only placeholder database
+URL is never set in the deployed runtime. No service credentials are needed to
+view the fictional demo at `/app/today`; authentication remains disabled.
+
+For the real workspace, configure PostgreSQL, private S3-compatible storage,
+authentication, a live AI model, and an external scheduler before enabling use.
+The current 10 MB server-upload design must also be adapted to Vercel's 4.5 MB
+function request/response limit before real uploads are enabled. Do not enable
+the CI integration-test AI or local storage on Vercel.
+
 ## Container deployment
 
 The root `Dockerfile` builds the locked application and generates its Prisma

@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "corepack pnpm install --frozen-lockfile",
+  "buildCommand": "DATABASE_URL=postgresql://build:build@localhost:5432/build corepack pnpm db:generate && corepack pnpm build"
+}
