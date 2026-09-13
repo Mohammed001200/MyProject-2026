@@ -145,9 +145,12 @@ jobs:
 
       - name: Verify additive migration upgrade path
         run: |
+          mv prisma/migrations/20260913180000_document_chat /tmp/civora-document-chat-migration
           mv prisma/migrations/20260831223000_document_pipeline /tmp/civora-document-pipeline-migration
           pnpm db:deploy
           mv /tmp/civora-document-pipeline-migration prisma/migrations/20260831223000_document_pipeline
+          pnpm db:deploy
+          mv /tmp/civora-document-chat-migration prisma/migrations/20260913180000_document_chat
           pnpm db:deploy
 
       - name: Run identity and tenant integration tests

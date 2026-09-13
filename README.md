@@ -69,6 +69,27 @@ Deployment status on 2026-09-12: Railway rejected project creation because the
 account trial has expired. No new service or online deployment was created.
 The Docker build has not yet been run by a container host.
 
+## Document chat
+
+The authenticated AI entry point is `/workspace/ai`. Select an analyzed document
+for a private conversation at `/workspace/ai/[documentId]`. Questions and answers
+are saved in PostgreSQL before delivery. Citations resolve to server-selected
+excerpts from that document, and clearing history deletes both questions and answers.
+Deleting a document or its analysis cascades to the associated chat records.
+
+The live adapter uses the existing `OPENAI_API_KEY` and `OPENAI_MODEL`, disables
+provider-side response storage, and sends bounded extracted evidence plus up to
+six earlier turns. Questions are limited to 2,000 characters, conversations to 40
+turns, and requests to 50 per rolling 24 hours per user. Request IDs prevent repeat
+charges from duplicate submissions; a pending request expires after two minutes.
+Model/token metadata is persisted; monetary cost is unknown until model pricing
+is configured. No tools or external actions are available to the chat model.
+
+Apply the new additive `20260913180000_document_chat` migration before enabling
+this feature in a configured environment. This milestone uses complete responses,
+not token streaming. Cross-document retrieval and live-provider evaluation remain
+pending. The integration-test adapter is isolated to explicitly enabled CI tests.
+
 ## Quality commands
 
 ```bash

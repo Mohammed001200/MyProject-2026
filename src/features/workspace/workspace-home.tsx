@@ -90,6 +90,9 @@ export function WorkspaceHome({
               >
                 Open Today <ArrowRight className="h-4 w-4" />
               </ButtonLink>
+              <ButtonLink href={"/workspace/ai" as Route} tone="quiet">
+                Ask CIVORA
+              </ButtonLink>
               <ButtonLink href={"/workspace/settings" as Route} tone="quiet">
                 Settings
               </ButtonLink>

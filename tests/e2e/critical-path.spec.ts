@@ -168,6 +168,46 @@ test.describe("authenticated critical path", () => {
     expect(sourceResponse.contentDisposition).toContain("attachment");
     expect(String.fromCharCode(...sourceResponse.prefix)).toBe("%PDF-");
 
+    await page.goto(`/workspace/ai/${upload.documentId}`);
+    await page
+      .getByLabel("Your question")
+      .fill("What is the response deadline?");
+    await page.getByRole("button", { name: "Send question" }).click();
+    await expect(
+      page.getByText("The fictional response deadline is 31 December 2099.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await page.reload();
+    await expect(
+      page.getByText("The fictional response deadline is 31 December 2099.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await page.getByText("Response deadline · Page 1", { exact: true }).click();
+    await expect(page.getByRole("blockquote")).toHaveText(
+      "Respond no later than 31 December 2099.",
+    );
+
+    await page.getByRole("button", { name: "Clear chat history" }).click();
+    await page.getByRole("button", { name: "Clear permanently" }).click();
+    await expect(
+      page.getByRole("heading", { name: "What is the response deadline?" }),
+    ).toHaveCount(0);
+    await page.reload();
+    await expect(
+      page.getByRole("heading", { name: "What is the response deadline?" }),
+    ).toHaveCount(0);
+    await page
+      .getByLabel("Your question")
+      .fill("What is the response deadline?");
+    await page.getByRole("button", { name: "Send question" }).click();
+    await expect(
+      page.getByText("The fictional response deadline is 31 December 2099.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+
     const outsiderContext = await browser.newContext();
     try {
       const outsiderPage = await outsiderContext.newPage();
@@ -177,32 +217,35 @@ test.describe("authenticated critical path", () => {
       });
       const outsiderStatuses = await outsiderPage.evaluate(
         async ({ documentId, actionId }) => {
-          const [document, source, deletion, action, edit] = await Promise.all([
-            fetch(`/api/documents/${documentId}`),
-            fetch(`/api/documents/${documentId}/source`),
-            fetch(`/api/documents/${documentId}`, { method: "DELETE" }),
-            fetch(`/api/actions/${actionId}`, {
-              method: "PATCH",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ status: "COMPLETED" }),
-            }),
-            fetch(`/api/actions/${actionId}`, {
-              method: "PATCH",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({
-                title: "Unauthorized edit",
-                description: null,
-                priority: "LOW",
-                dueDate: null,
+          const [document, source, deletion, action, edit, chat] =
+            await Promise.all([
+              fetch(`/api/documents/${documentId}`),
+              fetch(`/api/documents/${documentId}/source`),
+              fetch(`/api/documents/${documentId}`, { method: "DELETE" }),
+              fetch(`/api/actions/${actionId}`, {
+                method: "PATCH",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ status: "COMPLETED" }),
               }),
-            }),
-          ]);
+              fetch(`/api/actions/${actionId}`, {
+                method: "PATCH",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({
+                  title: "Unauthorized edit",
+                  description: null,
+                  priority: "LOW",
+                  dueDate: null,
+                }),
+              }),
+              fetch(`/api/documents/${documentId}/chat`),
+            ]);
           return [
             document.status,
             source.status,
             deletion.status,
             action.status,
             edit.status,
+            chat.status,
           ];
         },
         { documentId: upload.documentId, actionId },
@@ -290,13 +333,14 @@ test.describe("authenticated critical path", () => {
     await expect(libraryDocument).toHaveCount(0);
 
     const deletedStatuses = await page.evaluate(async (documentId) => {
-      const [document, source] = await Promise.all([
+      const [document, source, chat] = await Promise.all([
         fetch(`/api/documents/${documentId}`),
         fetch(`/api/documents/${documentId}/source`),
+        fetch(`/api/documents/${documentId}/chat`),
       ]);
-      return [document.status, source.status];
+      return [document.status, source.status, chat.status];
     }, upload.documentId);
-    expect(deletedStatuses).toEqual([404, 404]);
+    expect(deletedStatuses).toEqual([404, 404, 404]);
 
     await page.goto("/workspace/today");
     await page.getByRole("button", { name: "Add action", exact: true }).click();

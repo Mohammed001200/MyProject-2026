@@ -1,5 +1,8 @@
-import { createHash } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import * as chatProviders from "@/server/chat/provider";
+import { askDocument, readChat } from "@/server/chat/service";
+import type { ViewerContext } from "@/server/auth/authorization";
+import { createHash, randomUUID } from "node:crypto";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@/generated/prisma/client";
 import {
   PrivateResourceNotFoundError,
@@ -816,5 +819,168 @@ describe("identity and workspace persistence", () => {
         },
       }),
     ).toBe(10);
+  });
+});
+
+describe("document chat persistence", () => {
+  it("cannot resurrect a chat when its source is deleted during generation", async () => {
+    const { viewer, document } = await fixture();
+    let started!: () => void;
+    let release!: () => void;
+    const waiting = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const spy = vi.spyOn(chatProviders, "getChatProvider").mockReturnValue({
+      async answer(context) {
+        started();
+        await gate;
+        return {
+          result: {
+            answer: "Source answer",
+            sourceIds: [context.sources[0]!.id],
+            insufficientEvidence: false,
+          },
+          provider: "test",
+          model: "test",
+          inputTokens: 0,
+          outputTokens: 0,
+        };
+      },
+    });
+    try {
+      const pending = askDocument(viewer, document.id, {
+        requestId: randomUUID(),
+        question: "Deadline?",
+      });
+      const rejected = expect(pending).rejects.toMatchObject({
+        code: "CHAT_NO_LONGER_AVAILABLE",
+      });
+      await waiting;
+      await prisma.documentAnalysis.deleteMany({
+        where: { documentId: document.id },
+      });
+      release();
+      await rejected;
+      expect(
+        await prisma.chatTurn.count({ where: { documentId: document.id } }),
+      ).toBe(0);
+    } finally {
+      release();
+      spy.mockRestore();
+    }
+  });
+
+  async function fixture() {
+    const user = await prisma.user.create({
+      data: { name: "Chat Owner", email: `chat-${randomUUID()}@example.test` },
+    });
+    const workspaceId = await ensurePersonalWorkspace(prisma, user);
+    const document = await prisma.document.create({
+      data: {
+        workspaceId,
+        uploadedById: user.id,
+        title: "Chat source",
+        originalFileName: "chat.pdf",
+        status: "READY",
+        analyses: {
+          create: {
+            version: 1,
+            status: "READY",
+            provider: "test",
+            model: "test",
+            schemaVersion: "v1",
+            promptVersion: "v1",
+            summary: "Reply by 31 December 2099.",
+          },
+        },
+      },
+      include: { analyses: true },
+    });
+    const viewer = { session: { user }, workspaceId } as ViewerContext;
+    return { user, workspaceId, document, viewer };
+  }
+  it("persists an answer once for repeated request IDs and rejects changed reuse", async () => {
+    const { viewer, document } = await fixture();
+    const input = {
+      requestId: randomUUID(),
+      question: "What is the deadline?",
+    };
+    const [id, duplicate] = await Promise.all([
+      askDocument(viewer, document.id, input),
+      askDocument(viewer, document.id, input),
+    ]);
+    expect(duplicate).toBe(id);
+    const chat = await readChat(viewer, document.id);
+    expect(chat.turns).toHaveLength(1);
+    expect(chat.turns[0]).toMatchObject({
+      status: "COMPLETE",
+      citations: [{ id: document.analyses[0]!.id }],
+    });
+    await expect(
+      askDocument(viewer, document.id, { ...input, question: "Changed" }),
+    ).rejects.toMatchObject({ code: "REQUEST_CONFLICT" });
+  });
+  it("denies outsiders and keeps conversations private even between workspace members", async () => {
+    const a = await fixture();
+    const b = await fixture();
+    await askDocument(a.viewer, a.document.id, {
+      requestId: randomUUID(),
+      question: "Deadline?",
+    });
+    await expect(readChat(b.viewer, a.document.id)).rejects.toBeInstanceOf(
+      PrivateResourceNotFoundError,
+    );
+    await expect(
+      askDocument(b.viewer, a.document.id, {
+        requestId: randomUUID(),
+        question: "Read secret",
+      }),
+    ).rejects.toBeInstanceOf(PrivateResourceNotFoundError);
+    await prisma.workspaceMember.create({
+      data: { workspaceId: a.workspaceId, userId: b.user.id, role: "MEMBER" },
+    });
+    expect((await readChat(b.viewer, a.document.id)).turns).toEqual([]);
+  });
+  it("removes chat derivatives when the analysis is deleted", async () => {
+    const { viewer, document } = await fixture();
+    await askDocument(viewer, document.id, {
+      requestId: randomUUID(),
+      question: "Deadline?",
+    });
+    await prisma.documentAnalysis.deleteMany({
+      where: { documentId: document.id },
+    });
+    expect(
+      await prisma.chatTurn.count({ where: { documentId: document.id } }),
+    ).toBe(0);
+    await expect(
+      askDocument(viewer, document.id, {
+        requestId: randomUUID(),
+        question: "Again?",
+      }),
+    ).rejects.toMatchObject({ code: "DOCUMENT_NOT_READY" });
+  });
+  it("enforces the daily limit from audit records even after history was cleared", async () => {
+    const { viewer, document, workspaceId, user } = await fixture();
+    await prisma.auditEvent.createMany({
+      data: Array.from({ length: 50 }, () => ({
+        workspaceId,
+        actorUserId: user.id,
+        eventType: "chat.requested",
+        entityType: "chat",
+      })),
+    });
+    await expect(
+      askDocument(viewer, document.id, {
+        requestId: randomUUID(),
+        question: "Again?",
+      }),
+    ).rejects.toMatchObject({ code: "CHAT_DAILY_LIMIT" });
+    expect(
+      await prisma.chatTurn.count({ where: { documentId: document.id } }),
+    ).toBe(0);
   });
 });
