@@ -71,6 +71,8 @@ CIVORA Family, email ingestion, calendar providers, contract-change detection, s
 
 ## Progress log
 
+- **2026-09-13 — Editable preferences:** added an authenticated settings page for saved language, explanation style, and time zone, with server validation, owner-bound updates, atomic audit, and recoverable errors. Preferences remain forward-looking; full localization and personalized analysis are not claimed. Added authorization/validation tests and desktop/mobile persistence assertions. Today now marks overdue, due-today, and due-tomorrow actions using the saved time zone while preserving all-day calendar dates. Provider configuration is deferred at the user’s request.
+
 - **2026-09-13 — Scheduler preparation:** added a protected GET entry point and a daily Vercel recovery schedule, retaining the separately authenticated POST worker. Authorization tests cover absent/short configuration, missing/incorrect/cross-endpoint credentials, and authorized processing plus deletion cleanup. Local execution is unavailable; GitHub CI must validate this checkpoint. Live scheduler activation remains blocked by Vercel access and provider configuration.
 
 - **2026-09-13 — Verified checkpoint:** GitHub run 34738486329 passed quality, database integration, and desktop/mobile critical E2E on 7d35d42913e807671e32e54dca8d13c8eab221f1 (84 unit tests). The user screenshot confirms new preview CNJdyvi4S is Ready. Neon project dark-boat-77272588, production branch br-misty-queen-artlrxts, database civora is provisioned and connectivity checked; it has no application tables yet. Vercel project reads still return 403 despite reconnection. No live account, storage, or AI verification is claimed.

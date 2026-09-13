@@ -61,6 +61,22 @@ test.describe("authenticated critical path", () => {
       name: "Maya Owner",
     });
 
+    await page.getByRole("link", { name: "Settings", exact: true }).click();
+    await expect(page).toHaveURL(/\/workspace\/settings$/);
+    await page.getByLabel("Preferred language").selectOption("sv");
+    await page.getByLabel("Explanation style").selectOption("DETAILED");
+    await page
+      .getByLabel("Time zone", { exact: true })
+      .fill("Europe/Stockholm");
+    await page.getByRole("button", { name: "Save preferences" }).click();
+    await expect(page.getByRole("status")).toHaveText("Preferences saved.");
+    await page.reload();
+    await expect(page.getByLabel("Preferred language")).toHaveValue("sv");
+    await expect(page.getByLabel("Explanation style")).toHaveValue("DETAILED");
+    await expect(page.getByLabel("Time zone", { exact: true })).toHaveValue(
+      "Europe/Stockholm",
+    );
+
     await page.goto("/workspace/upload");
     await page.locator('input[type="file"]').setInputFiles({
       name: "fictional-information-request.pdf",

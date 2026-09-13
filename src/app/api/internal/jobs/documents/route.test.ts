@@ -38,18 +38,24 @@ describe("document scheduler authorization", () => {
         });
       }
 
-      it.each(["", "short"])("fails closed with invalid configuration %s", async (value) => {
-        vi.stubEnv(envName, value);
-        expect((await handler(request(secret))).status).toBe(503);
-        expect(jobs.process).not.toHaveBeenCalled();
-        expect(jobs.cleanup).not.toHaveBeenCalled();
-      });
+      it.each(["", "short"])(
+        "fails closed with invalid configuration %s",
+        async (value) => {
+          vi.stubEnv(envName, value);
+          expect((await handler(request(secret))).status).toBe(503);
+          expect(jobs.process).not.toHaveBeenCalled();
+          expect(jobs.cleanup).not.toHaveBeenCalled();
+        },
+      );
 
-      it.each([undefined, "wrong", otherSecret])("rejects invalid credentials %s", async (token) => {
-        expect((await handler(request(token))).status).toBe(401);
-        expect(jobs.process).not.toHaveBeenCalled();
-        expect(jobs.cleanup).not.toHaveBeenCalled();
-      });
+      it.each([undefined, "wrong", otherSecret])(
+        "rejects invalid credentials %s",
+        async (token) => {
+          expect((await handler(request(token))).status).toBe(401);
+          expect(jobs.process).not.toHaveBeenCalled();
+          expect(jobs.cleanup).not.toHaveBeenCalled();
+        },
+      );
 
       it("runs processing and deletion cleanup with the correct credential", async () => {
         const response = await handler(request(secret));

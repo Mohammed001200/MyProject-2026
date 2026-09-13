@@ -1,5 +1,6 @@
 "use client";
 
+import type { Deadline } from "./deadline";
 import { ActionEditor } from "@/features/actions/action-editor";
 import { CalendarDays, Check, FileText, Plus } from "lucide-react";
 import type { Route } from "next";
@@ -16,6 +17,7 @@ type TodayAction = {
   description: string | null;
   priority: string;
   dueAt: string | null;
+  deadline?: Deadline | null;
   sourceDateText: string | null;
   sourceDocument: { id: string; title: string } | null;
 };
@@ -157,15 +159,22 @@ export function WorkspaceToday({
                 className="grid gap-5 py-6 sm:grid-cols-[1fr_auto] sm:items-center"
               >
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-attention-wash px-2.5 py-1 text-[0.65rem] font-extrabold text-attention">
                       {action.priority}
                     </span>
+                    {status === "OPEN" && action.deadline?.label && (
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-bold ${action.deadline.label === "Overdue" ? "bg-danger-wash text-danger" : "bg-attention-wash text-attention"}`}
+                      >
+                        {action.deadline.label}
+                      </span>
+                    )}
                     {(action.dueAt || action.sourceDateText) && (
                       <span className="flex items-center gap-1 text-xs text-ink-faint">
                         <CalendarDays className="h-3.5 w-3.5" />
                         {action.dueAt
-                          ? `Due ${action.dueAt.slice(0, 10)}`
+                          ? `Due ${action.deadline?.date ?? action.dueAt.slice(0, 10)}`
                           : action.sourceDateText}
                       </span>
                     )}

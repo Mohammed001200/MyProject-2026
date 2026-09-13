@@ -27,6 +27,31 @@ afterEach(() => {
 });
 
 describe("workspace action controls", () => {
+  it("does not flag completed actions as overdue", () => {
+    render(
+      <WorkspaceToday
+        firstName="Maya"
+        status="COMPLETED"
+        initialActions={[
+          { ...action, deadline: { date: "2020-01-01", label: "Overdue" } },
+        ]}
+      />,
+    );
+    expect(screen.queryByText("Overdue")).not.toBeInTheDocument();
+  });
+
+  it("shows an overdue warning on open actions", () => {
+    render(
+      <WorkspaceToday
+        firstName="Maya"
+        initialActions={[
+          { ...action, deadline: { date: "2020-01-01", label: "Overdue" } },
+        ]}
+      />,
+    );
+    expect(screen.getByText("Overdue")).toBeVisible();
+  });
+
   it.each(["network", "server"])(
     "retains the action and offers retry after a %s failure",
     async (failure) => {

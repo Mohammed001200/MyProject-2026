@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { describeDeadline } from "@/features/today/deadline";
 import { WorkspaceToday } from "@/features/today/workspace-today";
 import { getViewerContext } from "@/server/auth/session";
 import { getPrisma } from "@/server/db/prisma";
@@ -20,22 +21,29 @@ export default async function RealTodayPage({
     requestedStatus === "COMPLETED" || requestedStatus === "DISMISSED"
       ? requestedStatus
       : "OPEN";
-  const rows = await getPrisma().actionItem.findMany({
-    where: {
-      workspaceId: viewer.workspaceId,
-      status,
-      OR: [
-        { sourceAnalysisId: null },
-        { sourceAnalysis: { is: { status: "READY" } } },
-      ],
-    },
-    include: { sourceDocument: { select: { id: true, title: true } } },
-    orderBy:
-      status === "OPEN"
-        ? [{ priority: "desc" }, { dueAt: "asc" }, { createdAt: "asc" }]
-        : [{ updatedAt: "desc" }],
-    take: 100,
-  });
+  const [rows, profile] = await Promise.all([
+    getPrisma().actionItem.findMany({
+      where: {
+        workspaceId: viewer.workspaceId,
+        status,
+        OR: [
+          { sourceAnalysisId: null },
+          { sourceAnalysis: { is: { status: "READY" } } },
+        ],
+      },
+      include: { sourceDocument: { select: { id: true, title: true } } },
+      orderBy:
+        status === "OPEN"
+          ? [{ priority: "desc" }, { dueAt: "asc" }, { createdAt: "asc" }]
+          : [{ updatedAt: "desc" }],
+      take: 100,
+    }),
+    getPrisma().profile.findUnique({
+      where: { userId: viewer.session.user.id },
+      select: { timezone: true },
+    }),
+  ]);
+  const now = new Date();
   const actions = rows
     .sort((left, right) =>
       status === "OPEN" ? rank[left.priority] - rank[right.priority] : 0,
@@ -46,6 +54,12 @@ export default async function RealTodayPage({
       description: action.description,
       priority: action.priority,
       dueAt: action.dueAt?.toISOString() ?? null,
+      deadline: describeDeadline(
+        action.dueAt,
+        action.dueDateIsAllDay,
+        profile?.timezone ?? "UTC",
+        now,
+      ),
       sourceDateText: action.sourceDateText,
       sourceDocument: action.sourceDocument,
     }));
