@@ -1,7 +1,7 @@
-import { DOCUMENT_MAX_BYTES } from "@/features/documents/file-policy";
+import { DOCUMENT_UPLOAD_MAX_BYTES } from "@/features/documents/file-policy";
 
 export const DOCUMENT_UPLOAD_REQUEST_MAX_BYTES =
-  DOCUMENT_MAX_BYTES + 128 * 1024;
+  DOCUMENT_UPLOAD_MAX_BYTES + 128 * 1024;
 
 export class UploadRequestTooLargeError extends Error {
   readonly code = "UPLOAD_REQUEST_TOO_LARGE";

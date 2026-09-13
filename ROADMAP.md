@@ -43,7 +43,7 @@ This file records implementation truth. A checked item is backed by running code
 - [x] Persisted document detail, authenticated source download, generated actions, completion/reopen API, source linkage, and real Today prioritization.
 - [x] Workspace-scoped document search and coordinated source/derivative deletion with worker fencing.
 - [x] Persisted Open/Completed/Dismissed views on Today, completion/dismissal/reopen controls, source links, and recoverable request errors.
-- [ ] Manual action creation and editing.
+- [x] Manual action creation and editing with validated fields, session-bound ownership, and atomic audit events.
 - [x] PostgreSQL integration coverage plus authenticated browser E2E and cross-tenant route/file/action denial.
 
 ## MVP quality gate
@@ -70,6 +70,8 @@ A new user can sign up, onboard, upload a real supported document, see durable p
 CIVORA Family, email ingestion, calendar providers, contract-change detection, subscription intelligence, native mobile/push, legitimate digital identity/BankID/open-banking integrations, advanced multilingual analysis, personal knowledge graph, and human-confirmed agentic preparation workflows.
 
 ## Progress log
+
+- **2026-09-13 — Manual actions and hosted uploads:** added create/edit forms on the persisted Today page, authenticated create/edit APIs, strict input/date validation, source-link preservation, and atomic audit events. New uploads are capped at 4 MB with multipart headroom for Vercel; existing storage-read limits are preserved. Local tests/build pass; expanded desktop/mobile E2E is pending this milestone's CI. The user confirmed the original Vercel deployment shows Ready. Neon connection is requested to provision the real database; live account/data functionality still requires provider configuration.
 
 - **2026-09-12 — Vercel selected:** added and locally validated a credential-free preview build using `vercel.json`, plus `.vercelignore`. Vercel accepted preview deployment `dpl_CqNYtf3PzEpkgJtgD1AzcXz2PvVA` at `https://civora-jsqslc19m-mohammedhassantuf-1939.vercel.app`. Its last confirmed state is INITIALIZING: status/log reads and protected URL verification returned a scope authorization error. READY and browser availability are not verified. Before real use, adapt the 10 MB upload/source-download flow to the host's 4.5 MB function payload limit and configure the live providers. No live authentication, storage, or AI was enabled by this preview deployment.
 

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { DOCUMENT_MAX_BYTES, validateDocumentCandidate } from "./file-policy";
+import {
+  DOCUMENT_UPLOAD_MAX_BYTES,
+  validateDocumentCandidate,
+} from "./file-policy";
 
 describe("validateDocumentCandidate", () => {
   it("accepts a supported extension and matching MIME type", () => {
@@ -31,11 +34,21 @@ describe("validateDocumentCandidate", () => {
     ).toMatchObject({ ok: false, code: "EMPTY" });
   });
 
+  it("accepts a file at the Vercel-compatible upload ceiling", () => {
+    expect(
+      validateDocumentCandidate({
+        name: "notice.pdf",
+        type: "application/pdf",
+        size: DOCUMENT_UPLOAD_MAX_BYTES,
+      }),
+    ).toEqual({ ok: true, extension: "pdf" });
+  });
+
   it("rejects files above the configured maximum", () => {
     expect(
       validateDocumentCandidate({
         name: "large.jpg",
-        size: DOCUMENT_MAX_BYTES + 1,
+        size: DOCUMENT_UPLOAD_MAX_BYTES + 1,
         type: "image/jpeg",
       }),
     ).toMatchObject({ ok: false, code: "TOO_LARGE" });

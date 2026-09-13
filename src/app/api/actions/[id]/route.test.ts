@@ -90,6 +90,47 @@ describe("action status updates", () => {
     expect(database.$transaction).not.toHaveBeenCalled();
   });
 
+  it("edits details without changing status, source evidence, or ownership", async () => {
+    const response = await update(
+      JSON.stringify({
+        title: " Revised task ",
+        description: "Notes",
+        priority: "HIGH",
+        dueDate: "2026-10-15",
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(database.actionItem.update).toHaveBeenCalledWith({
+      where: { id: "action" },
+      data: {
+        title: "Revised task",
+        description: "Notes",
+        priority: "HIGH",
+        dueAt: new Date("2026-10-15T00:00:00.000Z"),
+        dueDateIsAllDay: true,
+      },
+    });
+    expect(database.auditEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ eventType: "action.edited" }),
+    });
+  });
+
+  it("rejects an invalid calendar date", async () => {
+    expect(
+      (
+        await update(
+          JSON.stringify({
+            title: "Task",
+            description: null,
+            priority: "NORMAL",
+            dueDate: "2026-02-30",
+          }),
+        )
+      ).status,
+    ).toBe(400);
+    expect(database.$transaction).not.toHaveBeenCalled();
+  });
+
   it("rejects unauthenticated updates before accessing an action", async () => {
     vi.mocked(requireViewer).mockRejectedValue(new UnauthenticatedError());
     expect((await update('{"status":"DISMISSED"}')).status).toBe(401);

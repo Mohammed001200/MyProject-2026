@@ -1,4 +1,7 @@
+// Keep the storage read ceiling for existing files; new uploads fit Vercel's
+// 4.5 MB request/response limit with room for multipart overhead.
 export const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
+export const DOCUMENT_UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
 
 const allowedTypes = new Map([
   ["pdf", "application/pdf"],
@@ -24,11 +27,11 @@ export function validateDocumentCandidate(
     return { ok: false, code: "EMPTY", message: "The selected file is empty." };
   }
 
-  if (file.size > DOCUMENT_MAX_BYTES) {
+  if (file.size > DOCUMENT_UPLOAD_MAX_BYTES) {
     return {
       ok: false,
       code: "TOO_LARGE",
-      message: "The upload limit is 10 MB.",
+      message: "The upload limit is 4 MB.",
     };
   }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionEditor } from "@/features/actions/action-editor";
 import { CalendarDays, Check, FileText, Plus } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
@@ -29,12 +30,13 @@ export function WorkspaceToday({
   status?: ActionStatus;
 }) {
   const router = useRouter();
+  const [editor, setEditor] = useState<TodayAction | "new" | null>(null);
   const [refreshing, startTransition] = useTransition();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const inFlight = useRef(false);
-  const busy = pendingId !== null || refreshing;
+  const busy = pendingId !== null || refreshing || editor !== null;
 
   async function updateStatus(id: string, nextStatus: ActionStatus) {
     if (inFlight.current || refreshing) return;
@@ -87,6 +89,26 @@ export function WorkspaceToday({
         <p className="mt-4 text-base text-ink-soft">
           Review what needs attention, or return to an action you have finished.
         </p>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => setEditor("new")}
+          className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-full border border-line-strong px-5 text-sm font-bold text-ink disabled:opacity-50"
+        >
+          <Plus className="h-4 w-4" /> Add action
+        </button>
+        {editor && (
+          <ActionEditor
+            key={editor === "new" ? "new" : editor.id}
+            action={editor === "new" ? undefined : editor}
+            onCancel={() => setEditor(null)}
+            onSaved={() => {
+              setEditor(null);
+              setNotice("Action saved. Find new actions under Open.");
+              startTransition(() => router.refresh());
+            }}
+          />
+        )}
         <nav className="mt-8 flex flex-wrap gap-2" aria-label="Action status">
           {(Object.entries(views) as [ActionStatus, string][]).map(
             ([value, label]) => (
@@ -139,10 +161,12 @@ export function WorkspaceToday({
                     <span className="rounded-full bg-attention-wash px-2.5 py-1 text-[0.65rem] font-extrabold text-attention">
                       {action.priority}
                     </span>
-                    {action.sourceDateText && (
+                    {(action.dueAt || action.sourceDateText) && (
                       <span className="flex items-center gap-1 text-xs text-ink-faint">
                         <CalendarDays className="h-3.5 w-3.5" />
-                        {action.sourceDateText}
+                        {action.dueAt
+                          ? `Due ${action.dueAt.slice(0, 10)}`
+                          : action.sourceDateText}
                       </span>
                     )}
                   </div>
@@ -167,6 +191,14 @@ export function WorkspaceToday({
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setEditor(action)}
+                    className="min-h-11 rounded-full border border-line-strong px-4 text-sm font-bold text-ink disabled:opacity-50"
+                  >
+                    Edit
+                  </button>
                   {status === "OPEN" ? (
                     <>
                       <button

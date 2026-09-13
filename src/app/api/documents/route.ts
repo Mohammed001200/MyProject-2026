@@ -93,7 +93,7 @@ export async function POST(request: Request) {
     }
     if (error instanceof UploadRequestTooLargeError) {
       return Response.json(
-        { code: error.code, message: "The upload limit is 10 MB." },
+        { code: error.code, message: "The upload limit is 4 MB." },
         { status: 413 },
       );
     }

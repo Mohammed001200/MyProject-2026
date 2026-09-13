@@ -29,8 +29,10 @@ view the fictional demo at `/app/today`; authentication remains disabled.
 
 For the real workspace, configure PostgreSQL, private S3-compatible storage,
 authentication, a live AI model, and an external scheduler before enabling use.
-The current 10 MB server-upload design must also be adapted to Vercel's 4.5 MB
-function request/response limit before real uploads are enabled. Do not enable
+New uploads are limited to 4 MB, including a bounded multipart allowance below
+Vercel's 4.5 MB function payload ceiling. The storage adapter keeps its existing
+10 MB read ceiling for older development documents; larger legacy downloads need
+a different delivery path before importing them into this deployment. Do not enable
 the CI integration-test AI or local storage on Vercel.
 
 ## Container deployment

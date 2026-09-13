@@ -99,7 +99,7 @@ export function WorkspaceUploadForm() {
                 {fileName ?? "Choose a PDF or image"}
               </span>
               <span className="mt-2 block text-sm text-ink-soft">
-                PDF, JPG, or PNG · maximum 10 MB
+                PDF, JPG, or PNG · maximum 4 MB
               </span>
             </span>
           </label>

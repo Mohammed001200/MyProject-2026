@@ -84,7 +84,7 @@ export function UploadPreview() {
             Drop an important document here.
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-ink-soft">
-            PDF, JPG, JPEG, or PNG · maximum 10 MB in this preview
+            PDF, JPG, JPEG, or PNG · maximum 4 MB in this preview
           </p>
           <label className="mt-7 inline-flex min-h-11 cursor-pointer items-center rounded-full bg-brand-strong px-5 text-sm font-bold text-white transition hover:bg-brand">
             Choose a file

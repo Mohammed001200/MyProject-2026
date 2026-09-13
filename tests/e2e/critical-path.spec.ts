@@ -161,7 +161,7 @@ test.describe("authenticated critical path", () => {
       });
       const outsiderStatuses = await outsiderPage.evaluate(
         async ({ documentId, actionId }) => {
-          const [document, source, deletion, action] = await Promise.all([
+          const [document, source, deletion, action, edit] = await Promise.all([
             fetch(`/api/documents/${documentId}`),
             fetch(`/api/documents/${documentId}/source`),
             fetch(`/api/documents/${documentId}`, { method: "DELETE" }),
@@ -170,17 +170,28 @@ test.describe("authenticated critical path", () => {
               headers: { "content-type": "application/json" },
               body: JSON.stringify({ status: "COMPLETED" }),
             }),
+            fetch(`/api/actions/${actionId}`, {
+              method: "PATCH",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                title: "Unauthorized edit",
+                description: null,
+                priority: "LOW",
+                dueDate: null,
+              }),
+            }),
           ]);
           return [
             document.status,
             source.status,
             deletion.status,
             action.status,
+            edit.status,
           ];
         },
         { documentId: upload.documentId, actionId },
       );
-      expect(outsiderStatuses).toEqual([404, 404, 404, 404]);
+      expect(outsiderStatuses).toEqual([404, 404, 404, 404, 404]);
     } finally {
       await outsiderContext.close();
     }
@@ -270,5 +281,45 @@ test.describe("authenticated critical path", () => {
       return [document.status, source.status];
     }, upload.documentId);
     expect(deletedStatuses).toEqual([404, 404]);
+
+    await page.goto("/workspace/today");
+    await page.getByRole("button", { name: "Add action", exact: true }).click();
+    const editor = page.getByRole("form", { name: "Create action" });
+    await editor
+      .getByLabel("Title", { exact: true })
+      .fill("Call the housing office");
+    await editor.getByLabel("Notes").fill("Ask about the renewal date.");
+    await editor.getByLabel("Priority").selectOption("HIGH");
+    await editor.getByLabel("Due date (optional)").fill("2099-10-15");
+    const created = page.waitForResponse(
+      (r) =>
+        r.url().endsWith("/api/actions") && r.request().method() === "POST",
+    );
+    await editor.getByRole("button", { name: "Save action" }).click();
+    expect((await created).status()).toBe(201);
+    const manual = page.getByRole("article").filter({
+      has: page.getByRole("heading", { name: "Call the housing office" }),
+    });
+    await expect(manual).toBeVisible();
+    await page.reload();
+    await expect(manual.getByText("Due 2099-10-15")).toBeVisible();
+    await manual.getByRole("button", { name: "Edit", exact: true }).click();
+    const editForm = page.getByRole("form", { name: "Edit action" });
+    await editForm
+      .getByLabel("Title", { exact: true })
+      .fill("Email the housing office");
+    await editForm.getByLabel("Due date (optional)").fill("");
+    await editForm.getByRole("button", { name: "Save action" }).click();
+    const edited = page.getByRole("article").filter({
+      has: page.getByRole("heading", { name: "Email the housing office" }),
+    });
+    await expect(edited).toBeVisible();
+    await page.reload();
+    await expect(edited).toBeVisible();
+    await expect(edited.getByText("Due 2099-10-15")).toHaveCount(0);
+    await edited.getByRole("button", { name: "Complete", exact: true }).click();
+    await expect(edited).toBeHidden();
+    await openActionView(page, "COMPLETED");
+    await expect(edited).toBeVisible();
   });
 });

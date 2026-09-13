@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  DOCUMENT_UPLOAD_REQUEST_MAX_BYTES,
   InvalidUploadFormError,
   UploadRequestTooLargeError,
   readRequestBodyWithLimit,
 } from "@/server/uploads/request-body";
 
 describe("bounded upload request body", () => {
+  it("leaves multipart overhead below the hosting payload ceiling", () => {
+    expect(DOCUMENT_UPLOAD_REQUEST_MAX_BYTES).toBeLessThan(4_500_000);
+  });
   it("reads a body that fits the ingress limit", async () => {
     const request = new Request("http://localhost/upload", {
       method: "POST",
