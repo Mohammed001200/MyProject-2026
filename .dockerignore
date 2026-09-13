@@ -1,0 +1,13 @@
+.git
+.next
+node_modules
+.env
+.env.*
+!.env.example
+.civora-data
+artifacts
+test-results
+playwright-report
+coverage
+src/generated
+*.log
