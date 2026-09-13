@@ -35,6 +35,24 @@ Vercel's 4.5 MB function payload ceiling. The storage adapter keeps its existing
 a different delivery path before importing them into this deployment. Do not enable
 the CI integration-test AI or local storage on Vercel.
 
+## Scheduled recovery on Vercel
+
+The daily recovery cron calls `GET /api/internal/jobs/documents` with
+`CRON_SECRET`. Configure a separate random secret of at least 32 characters
+in the production environment before deploying. Missing configuration returns
+503; invalid credentials return 401 before any job or deletion runs.
+
+The `0 4 * * *` schedule is a daily recovery sweep, not a prompt-processing
+guarantee. It processes a bounded batch and reuses existing database leases.
+A frequent external worker can still use POST with `CIVORA_JOB_SECRET`.
+The two credentials are intentionally independent. Verify queue age and cleanup
+completion with synthetic documents before opening the real workspace.
+
+Vercel cron jobs run on production deployments; a Ready preview does not prove
+the scheduler works. See [Vercel cron security](https://vercel.com/docs/cron-jobs/manage-cron-jobs)
+and [schedule limits](https://vercel.com/docs/cron-jobs/usage-and-pricing).
+No live scheduler configuration is claimed yet.
+
 ## Container deployment
 
 The root `Dockerfile` builds the locked application and generates its Prisma

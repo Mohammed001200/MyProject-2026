@@ -18,8 +18,7 @@ function isAuthorized(request: Request, secret: string) {
   );
 }
 
-export async function POST(request: Request) {
-  const secret = process.env.CIVORA_JOB_SECRET?.trim();
+async function runJobs(request: Request, secret: string | undefined) {
   if (!secret || secret.length < 32) {
     return Response.json(
       { code: "JOB_RUNNER_NOT_CONFIGURED" },
@@ -40,4 +39,12 @@ export async function POST(request: Request) {
       headers: { "Cache-Control": "private, no-store, max-age=0" },
     },
   );
+}
+
+export async function GET(request: Request) {
+  return runJobs(request, process.env.CRON_SECRET?.trim());
+}
+
+export async function POST(request: Request) {
+  return runJobs(request, process.env.CIVORA_JOB_SECRET?.trim());
 }
