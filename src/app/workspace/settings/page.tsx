@@ -1,3 +1,4 @@
+import { SessionSecurity } from "@/features/settings/session-security";
 import { ExportData } from "@/features/settings/export-data";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -51,6 +52,7 @@ export default async function SettingsPage() {
             timezone: profile.timezone,
           }}
         />
+        <SessionSecurity />
         <ExportData />
       </div>
     </main>

@@ -1,3 +1,4 @@
+import { revokeOtherSessions } from "@/server/auth/revoke-sessions";
 import { exportWorkspace, ExportTooLargeError } from "@/server/privacy/export";
 import * as chatProviders from "@/server/chat/provider";
 import { askDocument, readChat } from "@/server/chat/service";
@@ -1103,5 +1104,56 @@ describe("personal workspace exports", () => {
         where: { actorUserId: a.id, eventType: "workspace.exported" },
       }),
     ).toBe(1);
+  });
+});
+
+describe("session revocation", () => {
+  it("preserves the current session and other users, and rejects a forged current session", async () => {
+    const a = await prisma.user.create({
+      data: {
+        name: "Session Owner",
+        email: `session-${randomUUID()}@example.test`,
+      },
+    });
+    const b = await prisma.user.create({
+      data: {
+        name: "Session Other",
+        email: `session-${randomUUID()}@example.test`,
+      },
+    });
+    const expiresAt = new Date(Date.now() + 60000);
+    const current = await prisma.session.create({
+      data: { userId: a.id, token: randomUUID(), expiresAt },
+    });
+    const other = await prisma.session.create({
+      data: { userId: a.id, token: randomUUID(), expiresAt },
+    });
+    const outsider = await prisma.session.create({
+      data: { userId: b.id, token: randomUUID(), expiresAt },
+    });
+    const viewer = { session: { user: a, session: current } } as ViewerContext;
+    await expect(
+      revokeOtherSessions({
+        ...viewer,
+        session: {
+          ...viewer.session,
+          session: { ...viewer.session.session, id: outsider.id },
+        },
+      }),
+    ).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
+    expect(
+      await prisma.session.findUnique({ where: { id: other.id } }),
+    ).not.toBeNull();
+    expect(await revokeOtherSessions(viewer)).toBe(1);
+    expect(
+      await prisma.session.findUnique({ where: { id: other.id } }),
+    ).toBeNull();
+    expect(
+      await prisma.session.findUnique({ where: { id: current.id } }),
+    ).not.toBeNull();
+    expect(
+      await prisma.session.findUnique({ where: { id: outsider.id } }),
+    ).not.toBeNull();
+    expect(await revokeOtherSessions(viewer)).toBe(0);
   });
 });

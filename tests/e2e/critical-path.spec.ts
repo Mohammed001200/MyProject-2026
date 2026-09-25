@@ -90,6 +90,33 @@ test.describe("authenticated critical path", () => {
     expect(exported.user.email).toBe(`owner-${runId}@example.test`);
     expect(exported.user.profile.preferredLocale).toBe("sv");
 
+    const secondDevice = await browser.newContext();
+    try {
+      const secondPage = await secondDevice.newPage();
+      await secondPage.goto("/auth/sign-in");
+      await secondPage.getByLabel("Email").fill(`owner-${runId}@example.test`);
+      await secondPage.getByLabel("Password").fill(password);
+      await secondPage.getByRole("button", { name: "Sign in" }).click();
+      await expect(secondPage).toHaveURL(/\/workspace$/);
+      const security = page.getByRole("form", {
+        name: "Sign out other devices",
+        exact: true,
+      });
+      await security.getByLabel("Sign out all my other sessions").check();
+      await security
+        .getByRole("button", { name: "Sign out other devices", exact: true })
+        .click();
+      await expect(security.getByRole("status")).toContainText(
+        "This session is still active.",
+      );
+      await secondPage.goto("/workspace/settings");
+      await expect(secondPage).toHaveURL(/\/auth\/sign-in/);
+      await page.reload();
+      await expect(page).toHaveURL(/\/workspace\/settings$/);
+    } finally {
+      await secondDevice.close();
+    }
+
     await page.goto("/workspace/upload");
     await page.locator('input[type="file"]').setInputFiles({
       name: "fictional-information-request.pdf",
