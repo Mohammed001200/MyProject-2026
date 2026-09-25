@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 
 const password = "correct-horse-battery-staple";
@@ -84,9 +85,9 @@ test.describe("authenticated critical path", () => {
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBe("civora-workspace-export.json");
     expect(await download.failure()).toBeNull();
-    const exportResponse = await page.request.get("/api/account/export");
-    expect(exportResponse.status()).toBe(200);
-    const exported = await exportResponse.json();
+    const downloadedPath = await download.path();
+    expect(downloadedPath).not.toBeNull();
+    const exported = JSON.parse(await readFile(downloadedPath!, "utf8"));
     expect(exported.user.email).toBe(`owner-${runId}@example.test`);
     expect(exported.user.profile.preferredLocale).toBe("sv");
 
