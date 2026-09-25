@@ -56,7 +56,8 @@ A new user can sign up, onboard, upload a real supported document, see durable p
 - [ ] Persisted notifications, deadline scheduling, timezone handling, preferences, and one configured external channel if credentials exist.
 - [ ] Money intelligence from documents without implying bank access.
 - [ ] Privacy export/account deletion, observability, analytics abstraction, accessibility/performance/security audits.
-- [ ] `RELEASE_CHECKLIST.md`, operational runbooks, backup/restore and incident procedures.
+- [x] `RELEASE_CHECKLIST.md` and operational runbooks prepared from current code.
+- [ ] Configure backups/monitoring and rehearse restore, deletion reconciliation, rollback and incident procedures against real infrastructure.
 
 ## V1 and monetization
 
@@ -70,6 +71,8 @@ A new user can sign up, onboard, upload a real supported document, see durable p
 CIVORA Family, email ingestion, calendar providers, contract-change detection, subscription intelligence, native mobile/push, legitimate digital identity/BankID/open-banking integrations, advanced multilingual analysis, personal knowledge graph, and human-confirmed agentic preparation workflows.
 
 ## Progress log
+
+- **2026-09-25 — Release preparation:** added a concrete release gate checklist and operations runbook covering live acceptance, independent scheduler credentials, bounded recovery, terminal failures, deletion tombstones, private chat failure states, migrations, compatible rollback and isolated restore with deletion reconciliation. These are prepared procedures; backups, alerts and live drills remain unverified. AI-chat checkpoint `bec8493` passed all three CI jobs in run 36093521385, including desktop/mobile journeys.
 
 - **2026-09-13 — Document chat:** added an authenticated document-scoped AI conversation with saved question/answer IDs, source citations resolved against authorized excerpts, per-user history, clearing, request deduplication, bounded context and daily reservations. Chat derivatives cascade with analysis/document deletion and late completions cannot recreate them. Model and token usage are recorded; monetary cost is unknown (nullable), not guessed. OpenAI credentials and a selected model remain required; deterministic responses are limited to explicit CI environments. Streaming, cross-document retrieval, and live-provider verification remain pending. Additive migration and security/persistence E2E checks accompany this checkpoint.
 

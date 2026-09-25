@@ -127,3 +127,10 @@ The preview needs no credentials. To activate the authenticated development flow
 - [AGENTS.md](./AGENTS.md) — persistent engineering rules
 
 The repository is not production-ready and must not be used for real sensitive documents until the release gates in `ROADMAP.md` and `SECURITY.md` are complete.
+
+## Release and operations
+
+Use [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) for the live launch gates and
+[OPERATIONS.md](OPERATIONS.md) for migration, recovery, backup/restore and incident
+procedures. They distinguish verified code from infrastructure and drills that
+still need to be configured and exercised.
