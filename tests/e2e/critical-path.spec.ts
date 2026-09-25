@@ -250,7 +250,7 @@ test.describe("authenticated critical path", () => {
         },
         { documentId: upload.documentId, actionId },
       );
-      expect(outsiderStatuses).toEqual([404, 404, 404, 404, 404]);
+      expect(outsiderStatuses).toEqual([404, 404, 404, 404, 404, 404]);
     } finally {
       await outsiderContext.close();
     }
