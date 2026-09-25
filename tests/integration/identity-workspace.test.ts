@@ -1,3 +1,4 @@
+import { exportWorkspace, ExportTooLargeError } from "@/server/privacy/export";
 import * as chatProviders from "@/server/chat/provider";
 import { askDocument, readChat } from "@/server/chat/service";
 import type { ViewerContext } from "@/server/auth/authorization";
@@ -982,5 +983,125 @@ describe("document chat persistence", () => {
     expect(
       await prisma.chatTurn.count({ where: { documentId: document.id } }),
     ).toBe(0);
+  });
+});
+
+describe("personal workspace exports", () => {
+  it("excludes outsiders, deleted records, other members' chats and credentials", async () => {
+    const a = await prisma.user.create({
+      data: {
+        name: "Export Owner",
+        email: `export-${randomUUID()}@example.test`,
+      },
+    });
+    const b = await prisma.user.create({
+      data: {
+        name: "Export Other",
+        email: `export-${randomUUID()}@example.test`,
+      },
+    });
+    const workspaceId = await ensurePersonalWorkspace(prisma, a);
+    const otherId = await ensurePersonalWorkspace(prisma, b);
+    await prisma.workspaceMember.create({
+      data: { workspaceId, userId: b.id, role: "MEMBER" },
+    });
+    await prisma.session.create({
+      data: {
+        userId: a.id,
+        token: "export-secret-token",
+        expiresAt: new Date(Date.now() + 60000),
+      },
+    });
+    const source = await prisma.document.create({
+      data: {
+        workspaceId,
+        uploadedById: a.id,
+        title: "Included source",
+        originalFileName: "source.pdf",
+        status: "READY",
+        analyses: {
+          create: {
+            version: 1,
+            provider: "test",
+            model: "test",
+            schemaVersion: "v1",
+            promptVersion: "v1",
+            summary: "Included summary",
+            status: "READY",
+          },
+        },
+      },
+      include: { analyses: true },
+    });
+    await prisma.document.createMany({
+      data: [
+        {
+          workspaceId,
+          uploadedById: a.id,
+          title: "Deleted secret",
+          originalFileName: "deleted.pdf",
+          deletedAt: new Date(),
+        },
+        {
+          workspaceId: otherId,
+          uploadedById: b.id,
+          title: "Outsider secret",
+          originalFileName: "other.pdf",
+        },
+      ],
+    });
+    await prisma.chatTurn.createMany({
+      data: [a, b].map((user) => ({
+        userId: user.id,
+        documentId: source.id,
+        analysisId: source.analyses[0]!.id,
+        requestId: randomUUID(),
+        question: user.id === a.id ? "Own question" : "Other member secret",
+        status: "COMPLETE",
+        answer: "Answer",
+      })),
+    });
+    const viewer = { session: { user: a }, workspaceId } as ViewerContext;
+    const body = await exportWorkspace(viewer);
+    const data = JSON.parse(body);
+    expect(data.documents).toHaveLength(1);
+    expect(data.documents[0].analyses[0].summary).toBe("Included summary");
+    expect(data.conversations).toHaveLength(1);
+    expect(data.conversations[0].question).toBe("Own question");
+    for (const forbidden of [
+      "Deleted secret",
+      "Outsider secret",
+      "Other member secret",
+      "export-secret-token",
+      "objectKey",
+      "password",
+    ])
+      expect(body).not.toContain(forbidden);
+    await expect(
+      exportWorkspace({ ...viewer, workspaceId: otherId }),
+    ).rejects.toBeInstanceOf(PrivateResourceNotFoundError);
+    await expect(
+      exportWorkspace({ session: { user: b }, workspaceId } as ViewerContext),
+    ).rejects.toBeInstanceOf(PrivateResourceNotFoundError);
+    expect(
+      await prisma.auditEvent.count({
+        where: { actorUserId: a.id, eventType: "workspace.exported" },
+      }),
+    ).toBe(1);
+    await prisma.actionItem.createMany({
+      data: Array.from({ length: 501 }, (_, i) => ({
+        workspaceId,
+        createdById: a.id,
+        title: `Action ${i}`,
+      })),
+    });
+    await expect(exportWorkspace(viewer)).rejects.toBeInstanceOf(
+      ExportTooLargeError,
+    );
+    expect(
+      await prisma.auditEvent.count({
+        where: { actorUserId: a.id, eventType: "workspace.exported" },
+      }),
+    ).toBe(1);
   });
 });

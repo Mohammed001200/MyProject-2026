@@ -1,3 +1,4 @@
+import { ExportData } from "@/features/settings/export-data";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -50,6 +51,7 @@ export default async function SettingsPage() {
             timezone: profile.timezone,
           }}
         />
+        <ExportData />
       </div>
     </main>
   );

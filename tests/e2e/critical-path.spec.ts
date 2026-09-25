@@ -77,6 +77,19 @@ test.describe("authenticated critical path", () => {
       "Europe/Stockholm",
     );
 
+    const downloadPromise = page.waitForEvent("download");
+    await page
+      .getByRole("button", { name: "Download workspace data", exact: true })
+      .click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe("civora-workspace-export.json");
+    expect(await download.failure()).toBeNull();
+    const exportResponse = await page.request.get("/api/account/export");
+    expect(exportResponse.status()).toBe(200);
+    const exported = await exportResponse.json();
+    expect(exported.user.email).toBe(`owner-${runId}@example.test`);
+    expect(exported.user.profile.preferredLocale).toBe("sv");
+
     await page.goto("/workspace/upload");
     await page.locator('input[type="file"]').setInputFiles({
       name: "fictional-information-request.pdf",
