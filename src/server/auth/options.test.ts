@@ -32,14 +32,14 @@ describe("authentication rate limits", () => {
     }
   });
 
-  it("allows four serial browser account journeys only in explicit CI E2E", () => {
+  it("allows four signups and six logins only in explicit CI E2E", () => {
     expect(getAuthRateLimitOptions(explicitCiE2EEnvironment)).toEqual({
       enabled: true,
       window: 60,
       max: 60,
       customRules: {
         "/sign-up/email": { window: 10, max: 4 },
-        "/sign-in/email": { window: 10, max: 4 },
+        "/sign-in/email": { window: 10, max: 6 },
       },
     });
   });
