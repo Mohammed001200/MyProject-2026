@@ -72,6 +72,8 @@ CIVORA Family, email ingestion, calendar providers, contract-change detection, s
 
 ## Progress log
 
+- **2026-09-27 — Password settings:** added current-password-verified password changes through the existing Better Auth endpoint, with confirmation validation, duplicate-submit protection, explicit other-session revocation and safe ambiguous-network-failure messaging. Browser checks exercise incorrect current password, old-password rejection and new-password login. Forgot-password email recovery remains pending; this feature does not require email or deployment configuration.
+
 - **2026-09-25 — Session security:** added confirmed sign-out of other sessions from settings. The server rechecks the current session, scopes deletion to its authenticated owner, preserves the active session and audits the change atomically. Tests cover other users, forged session identity, repeated requests and real second-device logout. Password reset/account recovery remain separate pending features.
 
 - **2026-09-25 — Workspace export:** added an authenticated JSON download in settings for the personal workspace, account/preferences, current documents with their latest analyses, actions and the requesting user’s private chat turns. Explicit field selection excludes credentials/storage locators; deleted records and other members’ chats are excluded. Membership is checked in a repeatable-read transaction and successful generation is audited. The bounded first version rejects oversized exports rather than silently truncating (500 rows per section, 3 MB); original files, older analyses, audit records and other workspaces are excluded. Full privacy export and account deletion remain open.

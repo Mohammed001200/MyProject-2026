@@ -18,10 +18,10 @@ export function getAuthRateLimitOptions(
     ...standardAuthRateLimit,
     customRules: {
       // The two serial browser projects each provision and authenticate an
-      // owner and outsider, plus a second-device login for each owner.
+      // owner and outsider, a second device, and old/new password checks.
       // Better Auth otherwise caps each route at three.
       "/sign-up/email": { window: 10, max: 4 },
-      "/sign-in/email": { window: 10, max: 6 },
+      "/sign-in/email": { window: 10, max: 10 },
     },
   };
 }

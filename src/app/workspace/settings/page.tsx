@@ -1,3 +1,4 @@
+import { ChangePassword } from "@/features/settings/change-password";
 import { SessionSecurity } from "@/features/settings/session-security";
 import { ExportData } from "@/features/settings/export-data";
 import type { Metadata } from "next";
@@ -52,6 +53,7 @@ export default async function SettingsPage() {
             timezone: profile.timezone,
           }}
         />
+        <ChangePassword />
         <SessionSecurity />
         <ExportData />
       </div>

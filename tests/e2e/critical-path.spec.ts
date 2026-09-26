@@ -422,5 +422,51 @@ test.describe("authenticated critical path", () => {
     await expect(edited).toBeHidden();
     await openActionView(page, "COMPLETED");
     await expect(edited).toBeVisible();
+
+    await page.goto("/workspace/settings");
+    const passwordForm = page.getByRole("form", {
+      name: "Change password",
+      exact: true,
+    });
+    const newPassword = "updated-correct-horse-battery-staple";
+    await passwordForm
+      .getByLabel("Current password", { exact: true })
+      .fill("wrong-current-password");
+    await passwordForm
+      .getByLabel("New password", { exact: true })
+      .fill(newPassword);
+    await passwordForm.getByLabel("Confirm new password").fill(newPassword);
+    await passwordForm
+      .getByRole("button", { name: "Change password", exact: true })
+      .click();
+    await expect(passwordForm.getByRole("alert")).toHaveText(
+      "Your current password was not accepted.",
+    );
+    await passwordForm
+      .getByLabel("Current password", { exact: true })
+      .fill(password);
+    await passwordForm
+      .getByRole("button", { name: "Change password", exact: true })
+      .click();
+    await expect(passwordForm.getByRole("status")).toContainText(
+      "Password changed.",
+    );
+    await page.reload();
+    await expect(page).toHaveURL(/\/workspace\/settings$/);
+    await page.evaluate(async () => {
+      await fetch("/api/auth/sign-out", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      });
+    });
+    await page.goto("/auth/sign-in");
+    await page.getByLabel("Email").fill(`owner-${runId}@example.test`);
+    await page.getByLabel("Password", { exact: true }).fill(password);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page.getByRole("alert")).toContainText("not accepted");
+    await page.getByLabel("Password", { exact: true }).fill(newPassword);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/workspace$/);
   });
 });
