@@ -464,7 +464,9 @@ test.describe("authenticated critical path", () => {
     await page.getByLabel("Email").fill(`owner-${runId}@example.test`);
     await page.getByLabel("Password", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page.getByRole("alert")).toContainText("not accepted");
+    await expect(page.getByRole("main").getByRole("alert")).toContainText(
+      "not accepted",
+    );
     await page.getByLabel("Password", { exact: true }).fill(newPassword);
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/workspace$/);
