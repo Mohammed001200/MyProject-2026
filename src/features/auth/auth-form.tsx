@@ -285,6 +285,15 @@ export function AuthForm({
         </button>
       </form>
 
+      {!isSignUp && (
+        <Link
+          href="/auth/forgot-password"
+          className="mt-4 inline-flex min-h-11 items-center text-sm font-bold text-brand"
+        >
+          Forgot password?
+        </Link>
+      )}
+
       {isSignUp && (
         <p className="mt-5 text-center text-xs leading-5 text-ink-faint">
           By creating an account, you agree to the{" "}

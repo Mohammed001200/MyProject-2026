@@ -1,3 +1,4 @@
+import { deliverPasswordReset } from "@/server/email/password-reset";
 import "server-only";
 
 import { prismaAdapter } from "@better-auth/prisma-adapter";
@@ -16,6 +17,12 @@ function createAuth() {
 
   return betterAuth({
     ...baseAuthOptions,
+    emailAndPassword: {
+      ...baseAuthOptions.emailAndPassword,
+      sendResetPassword: deliverPasswordReset,
+      resetPasswordTokenExpiresIn: 30 * 60,
+      revokeSessionsOnPasswordReset: true,
+    },
     secret: environment.secret,
     baseURL: environment.baseUrl,
     trustedOrigins: [environment.baseUrl],

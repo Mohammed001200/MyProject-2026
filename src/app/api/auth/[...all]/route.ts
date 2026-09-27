@@ -1,3 +1,4 @@
+import { passwordRecoveryAvailable } from "@/server/email/password-reset";
 import { getAuth } from "@/server/auth/auth";
 import { isConfigurationError } from "@/server/env";
 
@@ -6,7 +7,24 @@ export const dynamic = "force-dynamic";
 
 async function handleAuthRequest(request: Request) {
   try {
-    return await getAuth().handler(request);
+    const path = new URL(request.url).pathname.replace(/\/+$/, "");
+    if (
+      request.method === "POST" &&
+      path === "/api/auth/request-password-reset" &&
+      !passwordRecoveryAvailable()
+    ) {
+      return Response.json(
+        {
+          code: "PASSWORD_RECOVERY_UNAVAILABLE",
+          message: "Password recovery is not available in this environment.",
+        },
+        { status: 503, headers: { "Cache-Control": "private, no-store" } },
+      );
+    }
+    const response = await getAuth().handler(request);
+    response.headers.set("Cache-Control", "private, no-store");
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
   } catch (error) {
     if (isConfigurationError(error)) {
       return Response.json(

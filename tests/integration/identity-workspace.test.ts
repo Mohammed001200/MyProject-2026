@@ -1157,3 +1157,95 @@ describe("session revocation", () => {
     expect(await revokeOtherSessions(viewer)).toBe(0);
   });
 });
+
+describe("password recovery lifecycle", () => {
+  it("uses expiring single-use tokens and revokes sessions without account enumeration", async () => {
+    const email = `recovery-${randomUUID()}@example.test`;
+    const origin = "http://127.0.0.1:3000";
+    const oldPassword = "old-password-for-recovery";
+    const newPassword = "new-password-for-recovery";
+    const call = (path: string, body: unknown) =>
+      getAuth().handler(
+        new Request(`${origin}/api/auth/${path}`, {
+          method: "POST",
+          headers: { origin, "content-type": "application/json" },
+          body: JSON.stringify(body),
+        }),
+      );
+    expect(
+      (
+        await call("sign-up/email", {
+          name: "Recovery Owner",
+          email,
+          password: oldPassword,
+        })
+      ).status,
+    ).toBe(200);
+    const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+    await prisma.session.create({
+      data: {
+        userId: user.id,
+        token: randomUUID(),
+        expiresAt: new Date(Date.now() + 60000),
+      },
+    });
+    vi.stubEnv("RESEND_API_KEY", "integration-placeholder-not-real");
+    vi.stubEnv("CIVORA_EMAIL_FROM", "security@example.test");
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetcher);
+    try {
+      const known = await call("request-password-reset", {
+        email,
+        redirectTo: "/auth/reset-password",
+      });
+      const unknown = await call("request-password-reset", {
+        email: `absent-${randomUUID()}@example.test`,
+        redirectTo: "/auth/reset-password",
+      });
+      expect(known.status).toBe(200);
+      expect(unknown.status).toBe(200);
+      expect(await known.json()).toEqual(await unknown.json());
+      expect(fetcher).toHaveBeenCalledOnce();
+      const mail = JSON.parse(fetcher.mock.calls[0]![1].body);
+      const link = mail.text.match(/https?:[^\s]+/)![0];
+      const token = new URL(link).searchParams.get("token")!;
+      expect(
+        (await call("reset-password", { token, newPassword })).status,
+      ).toBe(200);
+      expect(await prisma.session.count({ where: { userId: user.id } })).toBe(
+        0,
+      );
+      expect(
+        (await call("reset-password", { token, newPassword: oldPassword }))
+          .status,
+      ).toBe(400);
+      expect(
+        (await call("sign-in/email", { email, password: oldPassword })).status,
+      ).not.toBe(200);
+      expect(
+        (await call("sign-in/email", { email, password: newPassword })).status,
+      ).toBe(200);
+      const expired = randomUUID();
+      await prisma.verification.create({
+        data: {
+          identifier: `reset-password:${expired}`,
+          value: user.id,
+          expiresAt: new Date(Date.now() - 60000),
+        },
+      });
+      expect(
+        (
+          await call("reset-password", {
+            token: expired,
+            newPassword: oldPassword,
+          })
+        ).status,
+      ).toBe(400);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    }
+  });
+});

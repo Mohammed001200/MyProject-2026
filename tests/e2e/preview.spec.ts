@@ -130,3 +130,32 @@ test("auth stays honest when server credentials are absent", async ({
     fullPage: true,
   });
 });
+
+test("password recovery has honest unavailable and invalid-link states", async ({
+  page,
+}) => {
+  test.skip(
+    Boolean(process.env.RESEND_API_KEY),
+    "This check targets an unconfigured mail environment.",
+  );
+  await page.goto("/auth/sign-in");
+  await page.getByRole("link", { name: "Forgot password?" }).click();
+  await expect(page).toHaveURL(/\/auth\/forgot-password$/);
+  await expect(page.getByRole("status")).toContainText("not enabled");
+  await expect(
+    page.getByRole("button", { name: "Send reset link" }),
+  ).toHaveCount(0);
+  const response = await page.request.post("/api/auth/request-password-reset", {
+    data: { email: "fictional@example.test" },
+  });
+  expect(response.status()).toBe(503);
+  await page.goto("/auth/reset-password?token=bad");
+  await expect(page.getByRole("status")).toContainText("missing or invalid");
+  await expect(
+    page.getByRole("link", { name: "Request a new link" }),
+  ).toBeVisible();
+  await expect(page.locator('meta[name="referrer"]')).toHaveAttribute(
+    "content",
+    "no-referrer",
+  );
+});

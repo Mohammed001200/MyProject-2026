@@ -134,3 +134,21 @@ Use [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) for the live launch gates and
 [OPERATIONS.md](OPERATIONS.md) for migration, recovery, backup/restore and incident
 procedures. They distinguish verified code from infrastructure and drills that
 still need to be configured and exercised.
+
+## Password recovery email
+
+The recovery form is available at `/auth/forgot-password`, linked from sign-in.
+Set server-only `RESEND_API_KEY` and `CIVORA_EMAIL_FROM` (a plain verified sender
+email address) and an explicit HTTPS `BETTER_AUTH_URL` before enabling live use.
+The adapter follows the [Resend send-email API](https://resend.com/docs/api-reference/emails/send-email).
+No email provider is provisioned or paid plan enabled by this implementation.
+
+Better Auth creates single-use reset tokens with a 30-minute expiry and revokes
+sessions after a successful reset. Links are built from the configured origin,
+not a submitted redirect. Public request responses do not disclose account
+existence or delivery failures; operators see only a content-free failure log.
+Sending is synchronous with a 10-second timeout: a response does not prove delivery,
+and no durable retry queue is implemented. Live deliverability remains unverified.
+Protect and redact reset-token URLs in host/proxy/analytics logs, disable email
+link tracking, and test real delivery before launch. Reset pages use no-referrer
+metadata; API responses are private/no-store. Email contents are currently English.
