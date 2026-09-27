@@ -116,3 +116,7 @@ Password changes, session revocation, data export and account deletion now follo
 ### 2026-09-27 — Today and action editing in Swedish
 
 Today uses the saved English/Swedish locale for navigation, state-specific empty views, priorities, deadline badges, notices and failures. Create/edit forms use the same language; API enum values, user content, source excerpts and source links stay unchanged. Calendar dates continue to use the existing time-zone-aware deadline calculation and ISO date display, without shifting all-day dates. Desktop/mobile coverage exercises Swedish creation, editing, completion, dismissal and reopening. Document and chat screens still need interface localization. No Vercel or live-provider changes.
+
+### 2026-09-27 — Document and chat interface language
+
+Authenticated document library, upload, detail, chat selection and conversation screens now use the saved English/Swedish locale. Document status/category labels, dates, citations' page labels, confirmations and known chat errors are localized; source excerpts, saved answers and original filenames are preserved. Authenticated locale lookup is request-cached. Network failures in document loading now offer retry; chat no longer exposes raw network error messages and preserves the question. Provider-generated analysis warnings/failure details retain their stored language. Live provider activation remains pending; no Vercel changes.

@@ -1,4 +1,6 @@
 "use client";
+import { documentMessages } from "@/features/localization/document-messages";
+import type { Locale } from "@/features/localization/messages";
 import Link from "next/link";
 import type { Route } from "next";
 import { useEffect, useRef, useState } from "react";
@@ -11,29 +13,19 @@ export type ChatTurnView = {
   citations: Citation[];
   createdAt: string;
 };
-const errors: Record<string, string> = {
-  AI_NOT_CONFIGURED:
-    "AI chat is not connected yet. Your documents are still available.",
-  DOCUMENT_NOT_READY:
-    "This document needs a completed analysis before you can chat about it.",
-  CHAT_DAILY_LIMIT:
-    "You have reached the limit of 50 questions in 24 hours. Try again later.",
-  CHAT_HISTORY_LIMIT:
-    "This conversation has reached 40 questions. Clear its history to start again.",
-  CHAT_BUSY:
-    "Another answer is still being prepared. Wait a moment and try again.",
-  NO_DOCUMENT_EVIDENCE:
-    "There is not enough extracted evidence to chat about this document.",
-};
 export function DocumentChat({
+  locale = "en",
   documentId,
   title,
   initialTurns,
 }: {
+  locale?: Locale;
   documentId: string;
   title: string;
   initialTurns: ChatTurnView[];
 }) {
+  const text = documentMessages[locale];
+  const errors: Record<string, string> = text.errors;
   const [turns, setTurns] = useState(initialTurns);
   const [question, setQuestion] = useState("");
   const [pending, setPending] = useState(false);
@@ -49,7 +41,7 @@ export function DocumentChat({
         const response = await fetch(`/api/documents/${documentId}/chat`);
         if (response.ok) setTurns((await response.json()).turns);
         else {
-          setError("Chat is no longer available. Return to your documents.");
+          setError(text.unavailable);
           clearInterval(timer);
         }
       } catch {
@@ -57,39 +49,36 @@ export function DocumentChat({
       }
     }, 3000);
     return () => clearInterval(timer);
-  }, [documentId, hasPending]);
+  }, [documentId, hasPending, text.unavailable]);
   async function send(event: React.FormEvent) {
     event.preventDefault();
     if (busy.current || !question.trim()) return;
     busy.current = true;
     setPending(true);
     setError("");
-    const text = question.trim();
-    if (request.current?.question !== text)
-      request.current = { question: text, id: crypto.randomUUID() };
+    const questionText = question.trim();
+    if (request.current?.question !== questionText)
+      request.current = { question: questionText, id: crypto.randomUUID() };
     try {
       const response = await fetch(`/api/documents/${documentId}/chat`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ question: text, requestId: request.current.id }),
+        body: JSON.stringify({
+          question: questionText,
+          requestId: request.current.id,
+        }),
       });
       const result = await response.json();
       if (!response.ok) {
         if (response.status !== 500) request.current = null;
-        throw new Error(
-          errors[result.code] ??
-            "The answer could not be saved. Please try again.",
-        );
+        setError(errors[result.code] ?? text.answerFailed);
+        return;
       }
       setTurns(result.turns);
       setQuestion("");
       request.current = null;
-    } catch (error) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Connection lost. Your question is still here.",
-      );
+    } catch {
+      setError(text.connection);
     } finally {
       busy.current = false;
       setPending(false);
@@ -104,30 +93,32 @@ export function DocumentChat({
       const response = await fetch(`/api/documents/${documentId}/chat`, {
         method: "DELETE",
       });
-      if (!response.ok)
-        throw new Error("History could not be cleared. Please try again.");
+      if (!response.ok) {
+        setError(text.clearFailed);
+        return;
+      }
       setTurns([]);
       setConfirmClear(false);
       request.current = null;
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Please try again.");
+    } catch {
+      setError(text.clearFailed);
     } finally {
       busy.current = false;
       setPending(false);
     }
   }
   return (
-    <main className="min-h-dvh bg-canvas px-5 py-10 sm:px-8">
+    <main lang={locale} className="min-h-dvh bg-canvas px-5 py-10 sm:px-8">
       <div className="mx-auto max-w-3xl">
         <Link
           href={"/workspace/ai" as Route}
           className="inline-flex min-h-11 items-center text-sm font-bold text-brand"
         >
-          Choose another document
+          {text.select}
         </Link>
-        <h1 className="display-type mt-5 text-4xl text-ink">Ask CIVORA</h1>
+        <h1 className="display-type mt-5 text-4xl text-ink">{text.ask}</h1>
         <p className="mt-3 text-sm text-ink-soft">
-          Selected document:{" "}
+          {text.selected}{" "}
           <Link
             className="underline"
             href={`/workspace/documents/${documentId}` as Route}
@@ -135,16 +126,11 @@ export function DocumentChat({
             {title}
           </Link>
         </p>
-        <p className="mt-3 text-sm leading-6 text-ink-soft">
-          Answers use this document’s extracted evidence. Check the source
-          before acting on important details. Your conversation is saved and is
-          removed when its source document is deleted.
-        </p>
-        <div className="mt-8 space-y-6" aria-label="Conversation">
+        <p className="mt-3 text-sm leading-6 text-ink-soft">{text.chatHelp}</p>
+        <div className="mt-8 space-y-6" aria-label={text.conversation}>
           {turns.length === 0 && (
             <p className="rounded-2xl border border-line p-6 text-ink-soft">
-              Try: What does this document ask me to do? What deadline does it
-              mention?
+              {text.suggestion}
             </p>
           )}
           {turns.map((turn) => (
@@ -156,14 +142,14 @@ export function DocumentChat({
                 {turn.status === "COMPLETE"
                   ? turn.answer
                   : turn.status === "FAILED"
-                    ? "This answer was interrupted or could not be saved. Send your question again."
-                    : "Preparing an answer…"}
+                    ? text.interrupted
+                    : text.preparing}
               </p>
               {turn.citations.map((source) => (
                 <details key={source.id} className="mt-3 text-sm text-ink-soft">
                   <summary className="min-h-11 cursor-pointer py-3 font-bold text-brand">
                     {source.label}
-                    {source.page ? ` · Page ${source.page}` : ""}
+                    {source.page ? ` · ${text.page} ${source.page}` : ""}
                   </summary>
                   <blockquote className="border-l-2 border-brand pl-4">
                     {source.text}
@@ -172,7 +158,7 @@ export function DocumentChat({
                     className="mt-2 inline-flex min-h-11 items-center underline"
                     href={`/workspace/documents/${documentId}` as Route}
                   >
-                    Open source document
+                    {text.openSource}
                   </Link>
                 </details>
               ))}
@@ -181,7 +167,7 @@ export function DocumentChat({
         </div>
         <form onSubmit={send} className="mt-8">
           <label htmlFor="chat-question" className="font-bold text-ink">
-            Your question
+            {text.question}
           </label>
           <textarea
             id="chat-question"
@@ -197,11 +183,11 @@ export function DocumentChat({
             disabled={pending || hasPending || !question.trim()}
             className="mt-3 min-h-11 rounded-full bg-brand-strong px-6 text-sm font-bold text-white disabled:opacity-50"
           >
-            {pending ? "Working…" : "Send question"}
+            {pending ? text.working : text.send}
           </button>
         </form>
         <p role="status" className="mt-3 text-sm text-ink-soft">
-          {pending ? "Preparing and saving your answer…" : ""}
+          {pending ? text.savingAnswer : ""}
         </p>
         {error && (
           <p role="alert" className="mt-3 text-sm text-danger">
@@ -211,23 +197,20 @@ export function DocumentChat({
         {turns.length > 0 && (
           <div className="mt-8">
             {confirmClear ? (
-              <div role="group" aria-label="Clear chat history">
-                <p className="text-sm text-ink">
-                  Permanently remove your questions and answers for this
-                  document?
-                </p>
+              <div role="group" aria-label={text.clearHistory}>
+                <p className="text-sm text-ink">{text.clearConfirm}</p>
                 <button
                   onClick={clear}
                   disabled={pending}
                   className="min-h-11 px-4 text-danger"
                 >
-                  Clear permanently
+                  {text.clearPermanent}
                 </button>
                 <button
                   onClick={() => setConfirmClear(false)}
                   className="min-h-11 px-4 text-ink"
                 >
-                  Cancel
+                  {text.cancel}
                 </button>
               </div>
             ) : (
@@ -236,7 +219,7 @@ export function DocumentChat({
                 disabled={pending}
                 className="min-h-11 text-sm text-ink-soft underline"
               >
-                Clear chat history
+                {text.clearHistory}
               </button>
             )}
           </div>

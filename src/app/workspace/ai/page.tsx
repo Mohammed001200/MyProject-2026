@@ -1,3 +1,5 @@
+import { documentMessages } from "@/features/localization/document-messages";
+import { getUserLocale } from "@/server/preferences/locale";
 import Link from "next/link";
 import type { Route } from "next";
 import { redirect } from "next/navigation";
@@ -13,6 +15,8 @@ export default async function ChatDocumentsPage() {
   if (inspectAuthEnvironment().state !== "ready") redirect("/auth/sign-in");
   const viewer = await getViewerContext();
   if (!viewer) redirect("/auth/sign-in");
+  const locale = await getUserLocale(viewer.session.user.id);
+  const text = documentMessages[locale];
   const documents = await getPrisma().document.findMany({
     where: {
       workspaceId: viewer.workspaceId,
@@ -24,21 +28,18 @@ export default async function ChatDocumentsPage() {
     select: { id: true, title: true },
   });
   return (
-    <main className="min-h-dvh bg-canvas px-5 py-12 sm:px-8">
+    <main lang={locale} className="min-h-dvh bg-canvas px-5 py-12 sm:px-8">
       <div className="mx-auto max-w-3xl">
         <Link
           href="/workspace"
           className="inline-flex min-h-11 items-center text-sm font-bold text-brand"
         >
-          Back to workspace
+          {text.back}
         </Link>
         <h1 className="display-type mt-6 text-5xl text-ink">
-          Ask your documents.
+          {text.askDocuments}
         </h1>
-        <p className="mt-4 leading-7 text-ink-soft">
-          Choose a document to ask questions and review the evidence behind each
-          answer. Each conversation stays with its selected source.
-        </p>
+        <p className="mt-4 leading-7 text-ink-soft">{text.selectionHelp}</p>
         <div className="mt-8 divide-y divide-line">
           {documents.map((document) => (
             <Link
@@ -52,17 +53,15 @@ export default async function ChatDocumentsPage() {
         </div>
         {!documents.length && (
           <p className="mt-8 text-ink-soft">
-            No analyzed documents yet.{" "}
+            {text.noAnalyzed}{" "}
             <Link href="/workspace/upload" className="underline">
-              Add a document
+              {text.addOne}
             </Link>{" "}
             to get started.
           </p>
         )}
         {documents.length === 100 && (
-          <p className="mt-4 text-xs text-ink-soft">
-            Showing your 100 most recent analyzed documents.
-          </p>
+          <p className="mt-4 text-xs text-ink-soft">{text.chatLimit}</p>
         )}
       </div>
     </main>

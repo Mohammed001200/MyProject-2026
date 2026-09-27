@@ -1,3 +1,4 @@
+import { getUserLocale } from "@/server/preferences/locale";
 import { notFound, redirect } from "next/navigation";
 import { RealDocumentDetail } from "@/features/documents/real-document-detail";
 import {
@@ -27,5 +28,6 @@ export default async function WorkspaceDocumentPage({
     if (error instanceof PrivateResourceNotFoundError) notFound();
     throw error;
   }
-  return <RealDocumentDetail documentId={id} />;
+  const locale = await getUserLocale(viewer.session.user.id);
+  return <RealDocumentDetail locale={locale} documentId={id} />;
 }

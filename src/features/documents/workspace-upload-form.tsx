@@ -1,4 +1,6 @@
 "use client";
+import { documentMessages } from "@/features/localization/document-messages";
+import type { Locale } from "@/features/localization/messages";
 
 import {
   ArrowLeft,
@@ -13,7 +15,8 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { validateDocumentCandidate } from "@/features/documents/file-policy";
 
-export function WorkspaceUploadForm() {
+export function WorkspaceUploadForm({ locale = "en" }: { locale?: Locale }) {
+  const text = documentMessages[locale];
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,13 +29,13 @@ export function WorkspaceUploadForm() {
     const file = form.get("file");
 
     if (!(file instanceof File)) {
-      setError("Choose a document first.");
+      setError(text.chooseFirst);
       return;
     }
 
     const validation = validateDocumentCandidate(file);
     if (!validation.ok) {
-      setError(validation.message);
+      setError(text.fileErrors[validation.code]);
       return;
     }
 
@@ -48,34 +51,36 @@ export function WorkspaceUploadForm() {
       };
 
       if (!response.ok || !result.documentId) {
-        setError(result.message ?? "The document could not be uploaded.");
+        setError(text.uploadError);
         return;
       }
 
       router.push(`/workspace/documents/${result.documentId}` as Route);
     } catch {
-      setError("CIVORA could not reach the upload service.");
+      setError(text.uploadNetwork);
     } finally {
       setPending(false);
     }
   }
 
   return (
-    <main className="min-h-dvh bg-canvas px-5 py-8 sm:px-8 sm:py-12">
+    <main
+      lang={locale}
+      className="min-h-dvh bg-canvas px-5 py-8 sm:px-8 sm:py-12"
+    >
       <div className="mx-auto max-w-2xl">
         <Link
           href="/workspace"
           className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-ink-soft no-underline"
         >
-          <ArrowLeft className="h-4 w-4" /> Back to workspace
+          <ArrowLeft className="h-4 w-4" /> {text.back}
         </Link>
-        <p className="eyebrow mt-12 text-brand">Private document intake</p>
+        <p className="eyebrow mt-12 text-brand">{text.intake}</p>
         <h1 className="display-type mt-4 text-5xl font-medium leading-none tracking-[-0.04em] text-ink sm:text-6xl">
-          Add what matters.
+          {text.uploadHeading}
         </h1>
         <p className="mt-5 max-w-xl text-base leading-7 text-ink-soft">
-          CIVORA validates the real file bytes, stores the source outside public
-          assets, and keeps every result attached to evidence.
+          {text.uploadHelp}
         </p>
 
         <form onSubmit={submit} className="mt-10">
@@ -96,10 +101,10 @@ export function WorkspaceUploadForm() {
                 {fileName ? <FileCheck2 /> : <Upload />}
               </span>
               <span className="mt-5 block text-base font-extrabold text-ink">
-                {fileName ?? "Choose a PDF or image"}
+                {fileName ?? text.choose}
               </span>
               <span className="mt-2 block text-sm text-ink-soft">
-                PDF, JPG, or PNG · maximum 4 MB
+                {text.fileLimit}
               </span>
             </span>
           </label>
@@ -115,8 +120,7 @@ export function WorkspaceUploadForm() {
 
           <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="flex items-center gap-2 text-xs text-ink-faint">
-              <LockKeyhole className="h-4 w-4" /> Authorized workspace access
-              only
+              <LockKeyhole className="h-4 w-4" /> {text.private}
             </p>
             <button
               type="submit"
@@ -124,7 +128,7 @@ export function WorkspaceUploadForm() {
               className="inline-flex min-h-13 items-center justify-center gap-2 rounded-full bg-brand-strong px-6 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               {pending && <LoaderCircle className="h-4 w-4 animate-spin" />}
-              {pending ? "Securing document…" : "Upload and analyze"}
+              {pending ? text.uploadPending : text.upload}
             </button>
           </div>
         </form>

@@ -1,3 +1,4 @@
+import { getUserLocale } from "@/server/preferences/locale";
 import { notFound, redirect } from "next/navigation";
 import { DocumentChat } from "@/features/chat/document-chat";
 import { getViewerContext } from "@/server/auth/session";
@@ -22,8 +23,10 @@ export default async function ChatPage({
     if (error instanceof PrivateResourceNotFoundError) notFound();
     throw error;
   });
+  const locale = await getUserLocale(viewer.session.user.id);
   return (
     <DocumentChat
+      locale={locale}
       documentId={id}
       title={chat.title}
       initialTurns={chat.turns}

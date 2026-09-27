@@ -146,7 +146,7 @@ test.describe("authenticated critical path", () => {
         response.url().endsWith("/api/documents") &&
         response.request().method() === "POST",
     );
-    await page.getByRole("button", { name: "Upload and analyze" }).click();
+    await page.getByRole("button", { name: "Ladda upp och analysera" }).click();
     const uploadResponse = await uploadResponsePromise;
     expect(uploadResponse.status()).toBe(202);
     const upload = (await uploadResponse.json()) as { documentId: string };
@@ -172,15 +172,15 @@ test.describe("authenticated critical path", () => {
       page.getByRole("heading", { name: "Submit requested information" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Evidence from the source" }),
+      page.getByRole("heading", { name: "Underlag från källan" }),
     ).toBeVisible();
     await expect(page.getByText("Response deadline")).toBeVisible();
-    await expect(page.getByText("Page 1")).toBeVisible();
+    await expect(page.getByText("Sida 1")).toBeVisible();
     await expect(
       page.getByText("Respond no later than 31 December 2099."),
     ).toBeVisible();
     await expect(
-      page.getByRole("link", { name: "Download source" }),
+      page.getByRole("link", { name: "Ladda ner original" }),
     ).toHaveAttribute("href", `/api/documents/${upload.documentId}/source`);
 
     const documentResponse = await page.evaluate(async (documentId) => {
@@ -221,10 +221,8 @@ test.describe("authenticated critical path", () => {
     expect(String.fromCharCode(...sourceResponse.prefix)).toBe("%PDF-");
 
     await page.goto(`/workspace/ai/${upload.documentId}`);
-    await page
-      .getByLabel("Your question")
-      .fill("What is the response deadline?");
-    await page.getByRole("button", { name: "Send question" }).click();
+    await page.getByLabel("Din fråga").fill("What is the response deadline?");
+    await page.getByRole("button", { name: "Skicka fråga" }).click();
     await expect(
       page.getByText("The fictional response deadline is 31 December 2099.", {
         exact: true,
@@ -236,13 +234,13 @@ test.describe("authenticated critical path", () => {
         exact: true,
       }),
     ).toBeVisible();
-    await page.getByText("Response deadline · Page 1", { exact: true }).click();
+    await page.getByText("Response deadline · Sida 1", { exact: true }).click();
     await expect(page.getByRole("blockquote")).toHaveText(
       "Respond no later than 31 December 2099.",
     );
 
-    await page.getByRole("button", { name: "Clear chat history" }).click();
-    await page.getByRole("button", { name: "Clear permanently" }).click();
+    await page.getByRole("button", { name: "Rensa chatthistorik" }).click();
+    await page.getByRole("button", { name: "Rensa permanent" }).click();
     await expect(
       page.getByRole("heading", { name: "What is the response deadline?" }),
     ).toHaveCount(0);
@@ -250,10 +248,8 @@ test.describe("authenticated critical path", () => {
     await expect(
       page.getByRole("heading", { name: "What is the response deadline?" }),
     ).toHaveCount(0);
-    await page
-      .getByLabel("Your question")
-      .fill("What is the response deadline?");
-    await page.getByRole("button", { name: "Send question" }).click();
+    await page.getByLabel("Din fråga").fill("What is the response deadline?");
+    await page.getByRole("button", { name: "Skicka fråga" }).click();
     await expect(
       page.getByText("The fictional response deadline is 31 December 2099.", {
         exact: true,
@@ -359,7 +355,7 @@ test.describe("authenticated critical path", () => {
     });
     await expect(libraryDocument).toBeVisible();
     const openDocument = libraryDocument.getByRole("link", {
-      name: "View document",
+      name: "Visa dokument",
     });
     await expect(openDocument).toHaveAttribute(
       "href",
@@ -370,16 +366,16 @@ test.describe("authenticated critical path", () => {
       new RegExp(`/workspace/documents/${upload.documentId}$`),
     );
 
-    await page.getByRole("button", { name: "Delete", exact: true }).click();
+    await page.getByRole("button", { name: "Radera", exact: true }).click();
     await expect(
-      page.getByRole("group", { name: "Confirm document deletion" }),
+      page.getByRole("group", { name: "Bekräfta dokumentradering" }),
     ).toBeVisible();
     const deleteResponsePromise = page.waitForResponse(
       (response) =>
         response.url().endsWith(`/api/documents/${upload.documentId}`) &&
         response.request().method() === "DELETE",
     );
-    await page.getByRole("button", { name: "Delete permanently" }).click();
+    await page.getByRole("button", { name: "Radera permanent" }).click();
     expect((await deleteResponsePromise).status()).toBe(200);
     await expect(page).toHaveURL(/\/workspace\/documents$/);
     await expect(libraryDocument).toHaveCount(0);

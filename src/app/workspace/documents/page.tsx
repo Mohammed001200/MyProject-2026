@@ -1,3 +1,5 @@
+import { documentMessages } from "@/features/localization/document-messages";
+import { getUserLocale } from "@/server/preferences/locale";
 import {
   ArrowLeft,
   ArrowRight,
@@ -28,25 +30,7 @@ type WorkspaceDocumentsPageProps = {
   }>;
 };
 
-const dateFormatter = new Intl.DateTimeFormat("en", {
-  dateStyle: "medium",
-  timeZone: "UTC",
-});
-
-const statusLabels: Record<string, string> = {
-  UPLOADED: "Uploaded",
-  QUEUED: "Queued",
-  PROCESSING: "Analyzing",
-  READY: "Ready",
-  NEEDS_REVIEW: "Needs review",
-  FAILED: "Stopped",
-};
-
 const documentsRoute = "/workspace/documents" as Route;
-
-function categoryLabel(category: string) {
-  return category.toLowerCase().replaceAll("_", " ");
-}
 
 export default async function WorkspaceDocumentsPage({
   searchParams,
@@ -55,6 +39,14 @@ export default async function WorkspaceDocumentsPage({
 
   const viewer = await getViewerContext();
   if (!viewer) redirect("/auth/sign-in");
+  const locale = await getUserLocale(viewer.session.user.id);
+  const text = documentMessages[locale];
+  const statusLabels: Record<string, string> = text.statuses;
+  const categories: Record<string, string> = text.categories;
+  const dateFormatter = new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeZone: "UTC",
+  });
 
   const parameters = await searchParams;
   const requestedQuery = parameters.q;
@@ -106,27 +98,30 @@ export default async function WorkspaceDocumentsPage({
   });
 
   return (
-    <main className="min-h-dvh bg-canvas px-5 py-8 sm:px-8 sm:py-12">
+    <main
+      lang={locale}
+      className="min-h-dvh bg-canvas px-5 py-8 sm:px-8 sm:py-12"
+    >
       <div className="mx-auto max-w-5xl">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <Link
             href="/workspace"
             className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-ink-soft no-underline"
           >
-            <ArrowLeft className="h-4 w-4" /> Workspace
+            <ArrowLeft className="h-4 w-4" /> {text.workspace}
           </Link>
-          <nav className="flex items-center gap-2" aria-label="Workspace">
+          <nav className="flex items-center gap-2" aria-label={text.workspace}>
             <Link
               href="/workspace/today"
               className="inline-flex min-h-11 items-center rounded-full px-4 text-sm font-bold text-ink-soft no-underline"
             >
-              Today
+              {text.today}
             </Link>
             <Link
               href="/workspace/upload"
               className="inline-flex min-h-11 items-center gap-2 rounded-full bg-brand-strong px-4 text-sm font-bold text-white no-underline"
             >
-              <Plus className="h-4 w-4" /> Add document
+              <Plus className="h-4 w-4" /> {text.add}
             </Link>
           </nav>
         </header>
@@ -136,19 +131,17 @@ export default async function WorkspaceDocumentsPage({
             className="mt-6 rounded-2xl border border-attention/25 bg-attention-wash px-4 py-3 text-sm text-ink"
             role="status"
           >
-            The document is hidden. Secure source deletion is queued and will
-            retry automatically.
+            {text.deletionPending}
           </p>
         )}
 
         <section className="mt-14 sm:mt-16">
-          <p className="eyebrow text-brand">Your documents</p>
+          <p className="eyebrow text-brand">{text.yourDocuments}</p>
           <h1 className="display-type mt-4 text-5xl font-medium tracking-[-0.04em] text-ink sm:text-6xl">
-            Every source, in one place.
+            {text.libraryHeading}
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-ink-soft">
-            Find an uploaded document and follow its analysis, actions, and
-            original source.
+            {text.libraryHelp}
           </p>
 
           <form
@@ -158,7 +151,7 @@ export default async function WorkspaceDocumentsPage({
             role="search"
           >
             <label className="relative flex-1" htmlFor="document-search">
-              <span className="sr-only">Search documents</span>
+              <span className="sr-only">{text.searchLabel}</span>
               <Search
                 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint"
                 aria-hidden="true"
@@ -169,7 +162,7 @@ export default async function WorkspaceDocumentsPage({
                 type="search"
                 defaultValue={query ?? ""}
                 maxLength={80}
-                placeholder="Search by title, organization, or file name"
+                placeholder={text.placeholder}
                 className="min-h-13 w-full rounded-full border border-line-strong bg-surface py-3 pl-11 pr-4 text-sm text-ink outline-none transition placeholder:text-ink-faint focus:border-brand focus:ring-4 focus:ring-brand-wash"
               />
             </label>
@@ -177,14 +170,14 @@ export default async function WorkspaceDocumentsPage({
               type="submit"
               className="min-h-13 rounded-full bg-brand-strong px-6 text-sm font-extrabold text-white"
             >
-              Search
+              {text.search}
             </button>
             {query && (
               <Link
                 href={documentsRoute}
                 className="inline-flex min-h-13 items-center justify-center rounded-full px-4 text-sm font-bold text-ink-soft no-underline"
               >
-                Clear
+                {text.clear}
               </Link>
             )}
           </form>
@@ -197,11 +190,11 @@ export default async function WorkspaceDocumentsPage({
                 id="documents-heading"
                 className="text-sm font-extrabold text-ink"
               >
-                {query ? `Results for \"${query}\"` : "Recently added"}
+                {query ? `${text.results} "${query}"` : text.recent}
               </h2>
               <p className="mt-1 text-xs text-ink-faint">
                 {documents.length}{" "}
-                {documents.length === 1 ? "document" : "documents"}
+                {documents.length === 1 ? text.one : text.many}
               </p>
             </div>
           </div>
@@ -210,18 +203,16 @@ export default async function WorkspaceDocumentsPage({
             <div className="rounded-b-[2rem] bg-surface px-6 py-14 text-center">
               <FileText className="mx-auto h-7 w-7 text-brand" />
               <h3 className="mt-4 text-lg font-extrabold text-ink">
-                {query ? "No matching documents." : "No documents yet."}
+                {query ? text.noMatch : text.empty}
               </h3>
               <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-ink-soft">
-                {query
-                  ? "Try another title, organization, or original file name."
-                  : "Upload a PDF or image to create your first source-backed analysis."}
+                {query ? text.trySearch : text.start}
               </p>
               <Link
                 href={query ? documentsRoute : "/workspace/upload"}
                 className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-full bg-brand-strong px-5 text-sm font-bold text-white no-underline"
               >
-                {query ? "Show all documents" : "Add a document"}
+                {query ? text.all : text.addOne}
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
@@ -238,11 +229,11 @@ export default async function WorkspaceDocumentsPage({
                         {statusLabels[document.status] ?? document.status}
                       </span>
                       <span className="text-xs capitalize text-ink-faint">
-                        {categoryLabel(document.category)}
+                        {categories[document.category] ?? document.category}
                       </span>
                       {document.requiresAction && (
                         <span className="rounded-full bg-attention-wash px-2.5 py-1 text-[0.65rem] font-extrabold text-attention">
-                          Action found
+                          {text.actionFound}
                         </span>
                       )}
                     </div>
@@ -258,7 +249,7 @@ export default async function WorkspaceDocumentsPage({
                       )}
                       <span className="inline-flex items-center gap-1.5">
                         <CalendarDays className="h-3.5 w-3.5" />
-                        {document.documentDate ? "Dated" : "Added"}{" "}
+                        {document.documentDate ? text.dated : text.added}{" "}
                         {dateFormatter.format(
                           document.documentDate ?? document.createdAt,
                         )}
@@ -269,7 +260,7 @@ export default async function WorkspaceDocumentsPage({
                     href={`/workspace/documents/${document.id}` as Route}
                     className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-line-strong px-4 text-sm font-bold text-ink no-underline"
                   >
-                    View document <ArrowRight className="h-4 w-4" />
+                    {text.view} <ArrowRight className="h-4 w-4" />
                   </Link>
                 </article>
               ))}

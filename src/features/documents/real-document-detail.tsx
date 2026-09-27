@@ -1,4 +1,6 @@
 "use client";
+import { documentMessages } from "@/features/localization/document-messages";
+import type { Locale } from "@/features/localization/messages";
 
 import {
   ArrowLeft,
@@ -48,9 +50,18 @@ type DocumentView = {
   }>;
 };
 
-export function RealDocumentDetail({ documentId }: { documentId: string }) {
+export function RealDocumentDetail({
+  documentId,
+  locale = "en",
+}: {
+  documentId: string;
+  locale?: Locale;
+}) {
+  const text = documentMessages[locale];
+  const categories: Record<string, string> = text.categories;
   const router = useRouter();
   const [document, setDocument] = useState<DocumentView | null>(null);
+  const [retry, setRetry] = useState(0);
   const [error, setError] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -86,18 +97,23 @@ export function RealDocumentDetail({ documentId }: { documentId: string }) {
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     async function load() {
-      const response = await fetch(`/api/documents/${documentId}`, {
-        cache: "no-store",
-      });
-      if (!response.ok) {
+      try {
+        if (!cancelled) setError(false);
+        const response = await fetch(`/api/documents/${documentId}`, {
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          if (!cancelled) setError(true);
+          return;
+        }
+        const next = (await response.json()) as DocumentView;
+        if (cancelled) return;
+        setDocument(next);
+        if (next.status === "QUEUED" || next.status === "PROCESSING") {
+          timer = setTimeout(load, 1400);
+        }
+      } catch {
         if (!cancelled) setError(true);
-        return;
-      }
-      const next = (await response.json()) as DocumentView;
-      if (cancelled) return;
-      setDocument(next);
-      if (next.status === "QUEUED" || next.status === "PROCESSING") {
-        timer = setTimeout(load, 1400);
       }
     }
 
@@ -106,13 +122,28 @@ export function RealDocumentDetail({ documentId }: { documentId: string }) {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [documentId]);
+  }, [documentId, retry]);
 
   if (error) {
     return (
-      <p className="p-8 text-danger">
-        The document could not be loaded safely.
-      </p>
+      <main lang={locale} className="min-h-dvh bg-canvas p-8">
+        <p role="alert" className="text-danger">
+          {text.loadError}
+        </p>
+        <button
+          type="button"
+          onClick={() => setRetry((value) => value + 1)}
+          className="mt-4 min-h-11 px-4 font-bold text-brand"
+        >
+          {text.retry}
+        </button>
+        <Link
+          href="/workspace/documents"
+          className="mt-4 inline-flex min-h-11 items-center px-4 text-brand"
+        >
+          {text.documents}
+        </Link>
+      </main>
     );
   }
 
@@ -122,29 +153,33 @@ export function RealDocumentDetail({ documentId }: { documentId: string }) {
     document.status === "PROCESSING"
   ) {
     return (
-      <main className="grid min-h-dvh place-items-center bg-canvas px-5">
+      <main
+        lang={locale}
+        className="grid min-h-dvh place-items-center bg-canvas px-5"
+      >
         <div className="text-center">
           <LoaderCircle className="mx-auto h-8 w-8 animate-spin text-brand" />
           <h1 className="display-type mt-6 text-4xl text-ink">
-            Understanding your document…
+            {text.loading}
           </h1>
-          <p className="mt-3 text-sm text-ink-soft">
-            The private source is stored. This page updates automatically.
-          </p>
+          <p className="mt-3 text-sm text-ink-soft">{text.loadingHelp}</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-dvh bg-canvas px-5 py-8 sm:px-8 sm:py-12">
+    <main
+      lang={locale}
+      className="min-h-dvh bg-canvas px-5 py-8 sm:px-8 sm:py-12"
+    >
       <div className="mx-auto max-w-5xl">
         <div className="flex items-center justify-between gap-4">
           <Link
             href={"/workspace/documents" as Route}
             className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-ink-soft no-underline"
           >
-            <ArrowLeft className="h-4 w-4" /> Documents
+            <ArrowLeft className="h-4 w-4" /> {text.documents}
           </Link>
           <div className="flex flex-wrap justify-end gap-2">
             {document.file && (
@@ -152,7 +187,7 @@ export function RealDocumentDetail({ documentId }: { documentId: string }) {
                 href={document.file.sourceUrl}
                 className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line-strong px-4 text-sm font-bold text-ink no-underline"
               >
-                <Download className="h-4 w-4" /> Download source
+                <Download className="h-4 w-4" /> {text.download}
               </a>
             )}
             {!confirmDelete ? (
@@ -161,13 +196,13 @@ export function RealDocumentDetail({ documentId }: { documentId: string }) {
                 onClick={() => setConfirmDelete(true)}
                 className="inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-sm font-bold text-danger"
               >
-                <Trash2 className="h-4 w-4" /> Delete
+                <Trash2 className="h-4 w-4" /> {text.delete}
               </button>
             ) : (
               <div
                 className="flex flex-wrap justify-end gap-2"
                 role="group"
-                aria-label="Confirm document deletion"
+                aria-label={text.confirmDelete}
               >
                 <button
                   type="button"
@@ -175,7 +210,7 @@ export function RealDocumentDetail({ documentId }: { documentId: string }) {
                   onClick={() => setConfirmDelete(false)}
                   className="min-h-11 rounded-full px-4 text-sm font-bold text-ink-soft"
                 >
-                  Cancel
+                  {text.cancel}
                 </button>
                 <button
                   type="button"
@@ -184,7 +219,7 @@ export function RealDocumentDetail({ documentId }: { documentId: string }) {
                   className="inline-flex min-h-11 items-center gap-2 rounded-full bg-danger px-4 text-sm font-bold text-white disabled:opacity-60"
                 >
                   <Trash2 className="h-4 w-4" />
-                  {deleting ? "Deleting…" : "Delete permanently"}
+                  {deleting ? text.deleting : text.permanent}
                 </button>
               </div>
             )}
@@ -196,7 +231,7 @@ export function RealDocumentDetail({ documentId }: { documentId: string }) {
             className="mt-4 rounded-2xl bg-danger-wash px-4 py-3 text-sm text-danger"
             role="alert"
           >
-            CIVORA could not complete deletion safely. Try again.
+            {text.deleteError}
           </p>
         )}
 
@@ -204,7 +239,7 @@ export function RealDocumentDetail({ documentId }: { documentId: string }) {
           <div className="mt-16 rounded-3xl border border-attention/25 bg-attention-wash p-7">
             <ShieldAlert className="h-6 w-6 text-attention" />
             <h1 className="display-type mt-5 text-4xl text-ink">
-              Analysis stopped safely.
+              {text.stopped}
             </h1>
             <p className="mt-3 text-sm leading-6 text-ink-soft">
               {document.failureMessage}
@@ -213,13 +248,13 @@ export function RealDocumentDetail({ documentId }: { documentId: string }) {
         ) : (
           <>
             <p className="eyebrow mt-12 text-brand">
-              {document.category.replaceAll("_", " ")}
+              {categories[document.category] ?? document.category}
             </p>
             <h1 className="display-type mt-4 text-5xl font-medium leading-none tracking-[-0.04em] text-ink sm:text-6xl">
               {document.title}
             </h1>
             <p className="mt-4 text-sm text-ink-soft">
-              {document.organizationName ?? "Organization not identified"}
+              {document.organizationName ?? text.unknownOrg}
             </p>
 
             {document.status === "NEEDS_REVIEW" && (
@@ -230,7 +265,7 @@ export function RealDocumentDetail({ documentId }: { documentId: string }) {
                 <div className="flex items-center gap-3">
                   <ShieldAlert className="h-5 w-5 text-attention" />
                   <h2 id="review-heading" className="font-extrabold text-ink">
-                    Review needed before acting
+                    {text.review}
                   </h2>
                 </div>
                 <ul className="mt-3 grid gap-2 pl-5 text-sm leading-6 text-ink-soft">
@@ -245,12 +280,14 @@ export function RealDocumentDetail({ documentId }: { documentId: string }) {
 
             <div className="mt-12 grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
               <section className="rounded-3xl border border-line bg-surface p-6 sm:p-8">
-                <p className="eyebrow text-brand">What it means</p>
+                <p className="eyebrow text-brand">{text.meaning}</p>
                 <p className="mt-5 text-lg leading-8 text-ink">
                   {document.analysis?.simpleExplanation}
                 </p>
                 <div className="mt-8 border-t border-line pt-6">
-                  <h2 className="text-sm font-extrabold text-ink">Summary</h2>
+                  <h2 className="text-sm font-extrabold text-ink">
+                    {text.summary}
+                  </h2>
                   <p className="mt-3 text-sm leading-7 text-ink-soft">
                     {document.analysis?.summary}
                   </p>
@@ -258,13 +295,13 @@ export function RealDocumentDetail({ documentId }: { documentId: string }) {
               </section>
 
               <section className="rounded-3xl bg-[#173c35] p-6 text-white sm:p-8">
-                <p className="eyebrow text-brand-bright">Next actions</p>
+                <p className="eyebrow text-brand-bright">{text.next}</p>
                 <div className="mt-5 grid gap-5">
                   {document.actions.length === 0 ? (
                     <p className="text-sm text-white/65">
                       {document.status === "NEEDS_REVIEW"
-                        ? "Automatic actions are held back until the analysis can be trusted."
-                        : "No action was supported by the source."}
+                        ? text.held
+                        : text.noAction}
                     </p>
                   ) : (
                     document.actions.map((action) => (
@@ -293,7 +330,7 @@ export function RealDocumentDetail({ documentId }: { documentId: string }) {
               <div className="flex items-center gap-3">
                 <FileText className="h-5 w-5 text-brand" />
                 <h2 className="text-lg font-extrabold text-ink">
-                  Evidence from the source
+                  {text.evidence}
                 </h2>
               </div>
               <div className="mt-5 grid gap-3">
@@ -308,8 +345,8 @@ export function RealDocumentDetail({ documentId }: { documentId: string }) {
                       </p>
                       <p className="mt-1 text-xs text-ink-faint">
                         {entity.pageNumber
-                          ? `Page ${entity.pageNumber}`
-                          : "Page unavailable"}
+                          ? `${text.page} ${entity.pageNumber}`
+                          : text.noPage}
                       </p>
                     </div>
                     <div>
