@@ -27,6 +27,47 @@ afterEach(() => {
 });
 
 describe("workspace action controls", () => {
+  it("localizes deadlines and priorities without rewriting source content", () => {
+    render(
+      <WorkspaceToday
+        locale="sv"
+        firstName="Maya"
+        initialActions={[
+          {
+            ...action,
+            dueAt: "2020-01-01T00:00:00.000Z",
+            deadline: { date: "2020-01-01", label: "Overdue" },
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByRole("main")).toHaveAttribute("lang", "sv");
+    expect(screen.getByText("Försenad")).toBeVisible();
+    expect(screen.getByText("Hög")).toBeVisible();
+    expect(screen.getByText("Senast 2020-01-01")).toBeVisible();
+    expect(screen.getByRole("heading", { name: action.title })).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Original request" }),
+    ).toHaveAttribute("href", "/workspace/documents/source");
+  });
+  it("submits stable API status values from Swedish controls", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetcher);
+    render(
+      <WorkspaceToday locale="sv" firstName="Maya" initialActions={[action]} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Slutför" }));
+    await waitFor(() => expect(refresh).toHaveBeenCalledOnce());
+    expect(fetcher).toHaveBeenCalledWith(
+      "/api/actions/test-action",
+      expect.objectContaining({ body: '{"status":"COMPLETED"}' }),
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Åtgärden har slutförts.",
+    );
+  });
   it("does not flag completed actions as overdue", () => {
     render(
       <WorkspaceToday

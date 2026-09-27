@@ -1,4 +1,6 @@
 "use client";
+import { todayMessages } from "@/features/localization/today-messages";
+import type { Locale } from "@/features/localization/messages";
 
 import { useId, useRef, useState, type FormEvent } from "react";
 import { actionDetailsSchema } from "./schema";
@@ -13,14 +15,17 @@ type EditableAction = {
 };
 
 export function ActionEditor({
+  locale = "en",
   action,
   onSaved,
   onCancel,
 }: {
+  locale?: Locale;
   action?: EditableAction;
   onSaved: () => void;
   onCancel: () => void;
 }) {
+  const text = todayMessages[locale];
   const id = useId();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +41,7 @@ export function ActionEditor({
       dueDate: form.get("dueDate") || null,
     });
     if (!input.success) {
-      setError("Enter a title and a valid date, or leave the date empty.");
+      setError(text.invalid);
       return;
     }
     inFlight.current = true;
@@ -54,9 +59,7 @@ export function ActionEditor({
       if (!response.ok) throw new Error("Action save failed");
       onSaved();
     } catch {
-      setError(
-        "Your action could not be saved. Your changes are still here; please try again.",
-      );
+      setError(text.saveError);
     } finally {
       inFlight.current = false;
       setPending(false);
@@ -66,25 +69,22 @@ export function ActionEditor({
     "mt-2 min-h-11 w-full rounded-xl border border-line-strong bg-surface px-3 py-2 text-base font-medium text-ink";
   return (
     <form
-      aria-label={action ? "Edit action" : "Create action"}
+      aria-label={action ? text.editAction : text.createAction}
       onSubmit={submit}
       className="my-6 rounded-2xl border border-line-strong bg-surface p-5 sm:p-6"
     >
       <h2 className="text-lg font-extrabold text-ink">
-        {action ? "Edit action" : "Add an action"}
+        {action ? text.editAction : text.addHeading}
       </h2>
       {action?.sourceDocument && (
-        <p className="mt-2 text-sm text-ink-soft">
-          Your changes update this action. The original document and its
-          evidence stay available.
-        </p>
+        <p className="mt-2 text-sm text-ink-soft">{text.evidence}</p>
       )}
       <fieldset
         disabled={pending}
         className="mt-5 grid gap-4 disabled:opacity-60"
       >
         <label htmlFor={`${id}-title`} className="text-sm font-bold text-ink">
-          Title
+          {text.title}
           <input
             id={`${id}-title`}
             name="title"
@@ -98,7 +98,7 @@ export function ActionEditor({
           htmlFor={`${id}-description`}
           className="text-sm font-bold text-ink"
         >
-          Notes
+          {text.notes}
           <textarea
             id={`${id}-description`}
             name="description"
@@ -113,21 +113,21 @@ export function ActionEditor({
             htmlFor={`${id}-priority`}
             className="text-sm font-bold text-ink"
           >
-            Priority
+            {text.priority}
             <select
               id={`${id}-priority`}
               name="priority"
               defaultValue={action?.priority ?? "NORMAL"}
               className={inputClass}
             >
-              <option value="LOW">Low</option>
-              <option value="NORMAL">Normal</option>
-              <option value="HIGH">High</option>
-              <option value="URGENT">Urgent</option>
+              <option value="LOW">{text.low}</option>
+              <option value="NORMAL">{text.normal}</option>
+              <option value="HIGH">{text.high}</option>
+              <option value="URGENT">{text.urgent}</option>
             </select>
           </label>
           <label htmlFor={`${id}-date`} className="text-sm font-bold text-ink">
-            Due date (optional)
+            {text.dueDate}
             <input
               id={`${id}-date`}
               name="dueDate"
@@ -147,14 +147,14 @@ export function ActionEditor({
             type="submit"
             className="min-h-11 rounded-full bg-brand-strong px-5 text-sm font-bold text-white"
           >
-            {pending ? "Saving…" : "Save action"}
+            {pending ? text.saving : text.save}
           </button>
           <button
             type="button"
             onClick={onCancel}
             className="min-h-11 rounded-full border border-line-strong px-5 text-sm font-bold text-ink"
           >
-            Cancel
+            {text.cancel}
           </button>
         </div>
       </fieldset>

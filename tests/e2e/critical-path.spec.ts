@@ -8,9 +8,9 @@ async function openActionView(
   status: "OPEN" | "COMPLETED" | "DISMISSED",
 ) {
   const labels = {
-    OPEN: "Open",
-    COMPLETED: "Completed",
-    DISMISSED: "Dismissed",
+    OPEN: "Öppna",
+    COMPLETED: "Slutförda",
+    DISMISSED: "Avfärdade",
   };
   await page.getByRole("link", { name: labels[status], exact: true }).click();
   // A Next.js link click can finish before client navigation commits. Reloading
@@ -321,11 +321,11 @@ test.describe("authenticated critical path", () => {
         response.url().endsWith(`/api/actions/${actionId}`) &&
         response.request().method() === "PATCH",
     );
-    await action.getByRole("button", { name: "Complete" }).click();
+    await action.getByRole("button", { name: "Slutför" }).click();
     expect((await completeResponsePromise).status()).toBe(200);
     await expect(action).toBeHidden();
     await expect(
-      page.getByRole("heading", { name: "Nothing needs your attention." }),
+      page.getByRole("heading", { name: "Inget behöver din uppmärksamhet." }),
     ).toBeVisible();
 
     // Status views must survive navigation and reload, not only local state.
@@ -333,11 +333,11 @@ test.describe("authenticated critical path", () => {
     await expect(action).toBeVisible();
     await page.reload();
     await expect(action).toBeVisible();
-    await action.getByRole("button", { name: "Reopen" }).click();
+    await action.getByRole("button", { name: "Öppna igen" }).click();
     await expect(action).toBeHidden();
     await openActionView(page, "OPEN");
     await expect(action).toBeVisible();
-    await action.getByRole("button", { name: "Dismiss", exact: true }).click();
+    await action.getByRole("button", { name: "Avfärda", exact: true }).click();
     await expect(action).toBeHidden();
     await openActionView(page, "DISMISSED");
     await page.reload();
@@ -345,10 +345,10 @@ test.describe("authenticated critical path", () => {
     await expect(
       action.getByRole("link", { name: "Fictional information request" }),
     ).toHaveAttribute("href", `/workspace/documents/${upload.documentId}`);
-    await action.getByRole("button", { name: "Reopen" }).click();
+    await action.getByRole("button", { name: "Öppna igen" }).click();
     await expect(action).toBeHidden();
     await openActionView(page, "OPEN");
-    await action.getByRole("button", { name: "Complete" }).click();
+    await action.getByRole("button", { name: "Slutför" }).click();
     await expect(action).toBeHidden();
 
     await page.goto("/workspace/documents?q=Fictional");
@@ -395,41 +395,43 @@ test.describe("authenticated critical path", () => {
     expect(deletedStatuses).toEqual([404, 404, 404]);
 
     await page.goto("/workspace/today");
-    await page.getByRole("button", { name: "Add action", exact: true }).click();
-    const editor = page.getByRole("form", { name: "Create action" });
+    await page
+      .getByRole("button", { name: "Lägg till åtgärd", exact: true })
+      .click();
+    const editor = page.getByRole("form", { name: "Skapa åtgärd" });
     await editor
-      .getByLabel("Title", { exact: true })
+      .getByLabel("Rubrik", { exact: true })
       .fill("Call the housing office");
-    await editor.getByLabel("Notes").fill("Ask about the renewal date.");
-    await editor.getByLabel("Priority").selectOption("HIGH");
-    await editor.getByLabel("Due date (optional)").fill("2099-10-15");
+    await editor.getByLabel("Anteckningar").fill("Ask about the renewal date.");
+    await editor.getByLabel("Prioritet").selectOption("HIGH");
+    await editor.getByLabel("Sista datum (valfritt)").fill("2099-10-15");
     const created = page.waitForResponse(
       (r) =>
         r.url().endsWith("/api/actions") && r.request().method() === "POST",
     );
-    await editor.getByRole("button", { name: "Save action" }).click();
+    await editor.getByRole("button", { name: "Spara åtgärd" }).click();
     expect((await created).status()).toBe(201);
     const manual = page.getByRole("article").filter({
       has: page.getByRole("heading", { name: "Call the housing office" }),
     });
     await expect(manual).toBeVisible();
     await page.reload();
-    await expect(manual.getByText("Due 2099-10-15")).toBeVisible();
-    await manual.getByRole("button", { name: "Edit", exact: true }).click();
-    const editForm = page.getByRole("form", { name: "Edit action" });
+    await expect(manual.getByText("Senast 2099-10-15")).toBeVisible();
+    await manual.getByRole("button", { name: "Redigera", exact: true }).click();
+    const editForm = page.getByRole("form", { name: "Redigera åtgärd" });
     await editForm
-      .getByLabel("Title", { exact: true })
+      .getByLabel("Rubrik", { exact: true })
       .fill("Email the housing office");
-    await editForm.getByLabel("Due date (optional)").fill("");
-    await editForm.getByRole("button", { name: "Save action" }).click();
+    await editForm.getByLabel("Sista datum (valfritt)").fill("");
+    await editForm.getByRole("button", { name: "Spara åtgärd" }).click();
     const edited = page.getByRole("article").filter({
       has: page.getByRole("heading", { name: "Email the housing office" }),
     });
     await expect(edited).toBeVisible();
     await page.reload();
     await expect(edited).toBeVisible();
-    await expect(edited.getByText("Due 2099-10-15")).toHaveCount(0);
-    await edited.getByRole("button", { name: "Complete", exact: true }).click();
+    await expect(edited.getByText("Senast 2099-10-15")).toHaveCount(0);
+    await edited.getByRole("button", { name: "Slutför", exact: true }).click();
     await expect(edited).toBeHidden();
     await openActionView(page, "COMPLETED");
     await expect(edited).toBeVisible();

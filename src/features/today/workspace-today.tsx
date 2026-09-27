@@ -1,4 +1,6 @@
 "use client";
+import { todayMessages } from "@/features/localization/today-messages";
+import type { Locale } from "@/features/localization/messages";
 
 import type { Deadline } from "./deadline";
 import { ActionEditor } from "@/features/actions/action-editor";
@@ -9,7 +11,6 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 
 type ActionStatus = "OPEN" | "COMPLETED" | "DISMISSED";
-const views = { OPEN: "Open", COMPLETED: "Completed", DISMISSED: "Dismissed" };
 
 type TodayAction = {
   id: string;
@@ -23,14 +24,24 @@ type TodayAction = {
 };
 
 export function WorkspaceToday({
+  locale = "en",
   firstName,
   initialActions,
   status = "OPEN",
 }: {
+  locale?: Locale;
   firstName: string;
   initialActions: TodayAction[];
   status?: ActionStatus;
 }) {
+  const text = todayMessages[locale];
+  const views = text.views;
+  const priorities: Record<string, string> = {
+    LOW: text.low,
+    NORMAL: text.normal,
+    HIGH: text.high,
+    URGENT: text.urgent,
+  };
   const router = useRouter();
   const [editor, setEditor] = useState<TodayAction | "new" | null>(null);
   const [refreshing, startTransition] = useTransition();
@@ -53,14 +64,10 @@ export function WorkspaceToday({
         body: JSON.stringify({ status: nextStatus }),
       });
       if (!response.ok) throw new Error("Action update rejected");
-      setNotice(
-        nextStatus === "OPEN"
-          ? "Action reopened. Find it under Open."
-          : `Action ${nextStatus.toLowerCase()}. You can reopen it from ${views[nextStatus]}.`,
-      );
+      setNotice(text.notices[nextStatus]);
       startTransition(() => router.refresh());
     } catch {
-      setError("The action could not be updated. Please try again.");
+      setError(text.updateError);
     } finally {
       inFlight.current = false;
       setPendingId(null);
@@ -68,7 +75,10 @@ export function WorkspaceToday({
   }
 
   return (
-    <main className="min-h-dvh bg-canvas px-5 py-8 sm:px-8 sm:py-12">
+    <main
+      lang={locale}
+      className="min-h-dvh bg-canvas px-5 py-8 sm:px-8 sm:py-12"
+    >
       <div className="mx-auto max-w-4xl">
         <div className="flex items-center justify-between gap-4">
           <Link
@@ -81,37 +91,39 @@ export function WorkspaceToday({
             href="/workspace/upload"
             className="inline-flex min-h-11 items-center gap-2 rounded-full bg-brand-strong px-4 text-sm font-bold text-white no-underline"
           >
-            <Plus className="h-4 w-4" /> Add document
+            <Plus className="h-4 w-4" /> {text.addDocument}
           </Link>
         </div>
-        <p className="eyebrow mt-16 text-brand">Today</p>
+        <p className="eyebrow mt-16 text-brand">{text.today}</p>
         <h1 className="display-type mt-4 text-5xl font-medium tracking-[-0.04em] text-ink sm:text-6xl">
-          What matters, {firstName}.
+          {text.greeting} {firstName}.
         </h1>
-        <p className="mt-4 text-base text-ink-soft">
-          Review what needs attention, or return to an action you have finished.
-        </p>
+        <p className="mt-4 text-base text-ink-soft">{text.description}</p>
         <button
           type="button"
           disabled={busy}
           onClick={() => setEditor("new")}
           className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-full border border-line-strong px-5 text-sm font-bold text-ink disabled:opacity-50"
         >
-          <Plus className="h-4 w-4" /> Add action
+          <Plus className="h-4 w-4" /> {text.addAction}
         </button>
         {editor && (
           <ActionEditor
+            locale={locale}
             key={editor === "new" ? "new" : editor.id}
             action={editor === "new" ? undefined : editor}
             onCancel={() => setEditor(null)}
             onSaved={() => {
               setEditor(null);
-              setNotice("Action saved. Find new actions under Open.");
+              setNotice(text.saved);
               startTransition(() => router.refresh());
             }}
           />
         )}
-        <nav className="mt-8 flex flex-wrap gap-2" aria-label="Action status">
+        <nav
+          className="mt-8 flex flex-wrap gap-2"
+          aria-label={text.statusLabel}
+        >
           {(Object.entries(views) as [ActionStatus, string][]).map(
             ([value, label]) => (
               <Link
@@ -134,7 +146,7 @@ export function WorkspaceToday({
           </p>
         )}
         <section
-          aria-label={`${views[status]} actions`}
+          aria-label={text.regions[status]}
           aria-busy={busy}
           className="mt-6 divide-y divide-line border-y border-line"
         >
@@ -142,14 +154,10 @@ export function WorkspaceToday({
             <div className="py-14 text-center">
               <Check className="mx-auto h-7 w-7 text-brand" />
               <h2 className="mt-4 text-lg font-extrabold text-ink">
-                {status === "OPEN"
-                  ? "Nothing needs your attention."
-                  : `No ${status.toLowerCase()} actions yet.`}
+                {text.empty[status]}
               </h2>
               <p className="mt-2 text-sm text-ink-soft">
-                {status === "OPEN"
-                  ? "New source-backed actions will appear here."
-                  : "Actions you move here remain available to reopen."}
+                {status === "OPEN" ? text.openHelp : text.closedHelp}
               </p>
             </div>
           ) : (
@@ -161,20 +169,20 @@ export function WorkspaceToday({
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-attention-wash px-2.5 py-1 text-[0.65rem] font-extrabold text-attention">
-                      {action.priority}
+                      {priorities[action.priority] ?? action.priority}
                     </span>
                     {status === "OPEN" && action.deadline?.label && (
                       <span
                         className={`rounded-full px-2.5 py-1 text-xs font-bold ${action.deadline.label === "Overdue" ? "bg-danger-wash text-danger" : "bg-attention-wash text-attention"}`}
                       >
-                        {action.deadline.label}
+                        {text.deadlines[action.deadline.label]}
                       </span>
                     )}
                     {(action.dueAt || action.sourceDateText) && (
                       <span className="flex items-center gap-1 text-xs text-ink-faint">
                         <CalendarDays className="h-3.5 w-3.5" />
                         {action.dueAt
-                          ? `Due ${action.deadline?.date ?? action.dueAt.slice(0, 10)}`
+                          ? `${text.due} ${action.deadline?.date ?? action.dueAt.slice(0, 10)}`
                           : action.sourceDateText}
                       </span>
                     )}
@@ -206,7 +214,7 @@ export function WorkspaceToday({
                     onClick={() => setEditor(action)}
                     className="min-h-11 rounded-full border border-line-strong px-4 text-sm font-bold text-ink disabled:opacity-50"
                   >
-                    Edit
+                    {text.edit}
                   </button>
                   {status === "OPEN" ? (
                     <>
@@ -216,7 +224,7 @@ export function WorkspaceToday({
                         onClick={() => updateStatus(action.id, "COMPLETED")}
                         className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-line-strong px-4 text-sm font-bold text-ink disabled:opacity-50"
                       >
-                        <Check className="h-4 w-4" /> Complete
+                        <Check className="h-4 w-4" /> {text.complete}
                       </button>
                       <button
                         type="button"
@@ -224,7 +232,7 @@ export function WorkspaceToday({
                         onClick={() => updateStatus(action.id, "DISMISSED")}
                         className="min-h-11 rounded-full px-4 text-sm font-bold text-ink-soft disabled:opacity-50"
                       >
-                        Dismiss
+                        {text.dismiss}
                       </button>
                     </>
                   ) : (
@@ -234,7 +242,7 @@ export function WorkspaceToday({
                       onClick={() => updateStatus(action.id, "OPEN")}
                       className="min-h-11 rounded-full border border-line-strong px-4 text-sm font-bold text-ink disabled:opacity-50"
                     >
-                      Reopen
+                      {text.reopen}
                     </button>
                   )}
                 </div>
@@ -243,9 +251,7 @@ export function WorkspaceToday({
           )}
         </section>
         {initialActions.length === 100 && (
-          <p className="mt-4 text-xs text-ink-faint">
-            Showing the first 100 {status.toLowerCase()} actions.
-          </p>
+          <p className="mt-4 text-xs text-ink-faint">{text.limits[status]}</p>
         )}
       </div>
     </main>

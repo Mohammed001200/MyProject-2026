@@ -112,3 +112,7 @@ Workspace home and preference settings now use the authenticated profile's Engli
 ### 2026-09-27 — Security settings in Swedish
 
 Password changes, session revocation, data export and account deletion now follow the saved interface language, including confirmations, constraints, progress, errors and success messages. The irreversible confirmation remains the literal DELETE in both languages. Locale inputs affect display only; authentication, ownership and mutation guards remain server-enforced. English is the fallback. Unit coverage preserves English behavior and adds Swedish validation; the authenticated mobile/desktop journey now exercises security settings in Swedish. Document, Today, chat and authentication screens still require interface localization. No deployment or live provider changes.
+
+### 2026-09-27 — Today and action editing in Swedish
+
+Today uses the saved English/Swedish locale for navigation, state-specific empty views, priorities, deadline badges, notices and failures. Create/edit forms use the same language; API enum values, user content, source excerpts and source links stay unchanged. Calendar dates continue to use the existing time-zone-aware deadline calculation and ISO date display, without shifting all-day dates. Desktop/mobile coverage exercises Swedish creation, editing, completion, dismissal and reopening. Document and chat screens still need interface localization. No Vercel or live-provider changes.

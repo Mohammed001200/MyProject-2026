@@ -1,3 +1,4 @@
+import { resolveLocale } from "@/features/localization/messages";
 import { redirect } from "next/navigation";
 import { describeDeadline } from "@/features/today/deadline";
 import { WorkspaceToday } from "@/features/today/workspace-today";
@@ -40,7 +41,7 @@ export default async function RealTodayPage({
     }),
     getPrisma().profile.findUnique({
       where: { userId: viewer.session.user.id },
-      select: { timezone: true },
+      select: { timezone: true, preferredLocale: true },
     }),
   ]);
   const now = new Date();
@@ -66,7 +67,8 @@ export default async function RealTodayPage({
   const firstName = viewer.session.user.name.trim().split(/\s+/)[0] ?? "there";
   return (
     <WorkspaceToday
-      key={status}
+      key={`${status}-${resolveLocale(profile?.preferredLocale)}`}
+      locale={resolveLocale(profile?.preferredLocale)}
       firstName={firstName}
       initialActions={actions}
       status={status}
