@@ -10,7 +10,11 @@ function preferredTheme() {
     : "light";
 }
 
-export function ThemeToggle() {
+export function ThemeToggle({
+  label = "Switch color theme",
+}: {
+  label?: string;
+}) {
   function toggleTheme() {
     const nextTheme = preferredTheme() === "dark" ? "light" : "dark";
     document.documentElement.dataset.theme = nextTheme;
@@ -22,7 +26,7 @@ export function ThemeToggle() {
       type="button"
       onClick={toggleTheme}
       className="grid h-10 w-10 place-items-center rounded-full border border-line bg-surface text-ink-soft transition hover:border-line-strong hover:text-ink"
-      aria-label="Switch color theme"
+      aria-label={label}
     >
       <Sun className="h-[18px] w-[18px] dark:hidden" aria-hidden="true" />
       <Moon

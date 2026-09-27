@@ -1,3 +1,7 @@
+import {
+  preferenceMessages,
+  resolveLocale,
+} from "@/features/localization/messages";
 import { DeleteAccount } from "@/features/settings/delete-account";
 import { ChangePassword } from "@/features/settings/change-password";
 import { SessionSecurity } from "@/features/settings/session-security";
@@ -30,22 +34,20 @@ export default async function SettingsPage() {
     },
   });
   if (!profile?.onboardingDone) redirect("/onboarding");
+  const locale = resolveLocale(profile.preferredLocale);
+  const text = preferenceMessages[locale];
   return (
-    <main className="min-h-dvh bg-canvas px-5 py-12 sm:px-8">
+    <main lang={locale} className="min-h-dvh bg-canvas px-5 py-12 sm:px-8">
       <div className="mx-auto max-w-xl">
         <Link
           href="/workspace"
           className="inline-flex min-h-11 items-center text-sm font-bold text-brand"
         >
-          Back to workspace
+          {text.back}
         </Link>
-        <h1 className="display-type mt-6 text-5xl text-ink">
-          Your preferences
-        </h1>
+        <h1 className="display-type mt-6 text-5xl text-ink">{text.heading}</h1>
         <p className="mt-4 text-sm leading-6 text-ink-soft">
-          Update your saved language, explanation style, and time zone. Full
-          language support and personalized analysis are still being developed;
-          changing these preferences does not rewrite existing documents.
+          {text.description}
         </p>
         <PreferencesForm
           preferences={{
@@ -54,10 +56,12 @@ export default async function SettingsPage() {
             timezone: profile.timezone,
           }}
         />
-        <ChangePassword />
-        <SessionSecurity />
-        <ExportData />
-        <DeleteAccount />
+        <div lang="en">
+          <ChangePassword />
+          <SessionSecurity />
+          <ExportData />
+          <DeleteAccount />
+        </div>
       </div>
     </main>
   );

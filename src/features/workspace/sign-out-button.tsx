@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
-export function SignOutButton() {
+export function SignOutButton({ locale = "en" }: { locale?: "en" | "sv" }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
 
@@ -28,7 +28,13 @@ export function SignOutButton() {
       className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line-strong bg-surface px-4 text-sm font-bold text-ink-soft transition hover:bg-canvas-soft hover:text-ink disabled:cursor-wait disabled:opacity-60"
     >
       <LogOut className="h-4 w-4" />
-      {pending ? "Signing out…" : "Sign out"}
+      {locale === "sv"
+        ? pending
+          ? "Loggar ut…"
+          : "Logga ut"
+        : pending
+          ? "Signing out…"
+          : "Sign out"}
     </button>
   );
 }

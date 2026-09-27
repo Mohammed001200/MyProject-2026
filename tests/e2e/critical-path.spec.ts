@@ -70,13 +70,24 @@ test.describe("authenticated critical path", () => {
       .getByLabel("Time zone", { exact: true })
       .fill("Europe/Stockholm");
     await page.getByRole("button", { name: "Save preferences" }).click();
-    await expect(page.getByRole("status")).toHaveText("Preferences saved.");
+    await expect(page.getByRole("status")).toHaveText(
+      "Inställningarna har sparats.",
+    );
     await page.reload();
-    await expect(page.getByLabel("Preferred language")).toHaveValue("sv");
-    await expect(page.getByLabel("Explanation style")).toHaveValue("DETAILED");
-    await expect(page.getByLabel("Time zone", { exact: true })).toHaveValue(
+    await expect(page.getByLabel("Önskat språk")).toHaveValue("sv");
+    await expect(page.getByLabel("Förklaringsstil")).toHaveValue("DETAILED");
+    await expect(page.getByLabel("Tidszon", { exact: true })).toHaveValue(
       "Europe/Stockholm",
     );
+
+    await page.getByRole("link", { name: "Tillbaka till arbetsytan" }).click();
+    await expect(
+      page.getByRole("link", { name: "Öppna dokument", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("main")).toHaveAttribute("lang", "sv");
+    await page
+      .getByRole("link", { name: "Inställningar", exact: true })
+      .click();
 
     const downloadPromise = page.waitForEvent("download");
     await page

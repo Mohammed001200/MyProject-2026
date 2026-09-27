@@ -23,7 +23,7 @@ export default async function WorkspacePage() {
   const [profile, workspace] = await Promise.all([
     getPrisma().profile.findUnique({
       where: { userId: viewer.session.user.id },
-      select: { onboardingDone: true },
+      select: { onboardingDone: true, preferredLocale: true },
     }),
     getPrisma().workspace.findUnique({
       where: { id: viewer.workspaceId },
@@ -36,5 +36,11 @@ export default async function WorkspacePage() {
 
   const firstName = viewer.session.user.name.trim().split(/\s+/)[0] ?? "there";
 
-  return <WorkspaceHome firstName={firstName} workspaceName={workspace.name} />;
+  return (
+    <WorkspaceHome
+      locale={profile.preferredLocale}
+      firstName={firstName}
+      workspaceName={workspace.name}
+    />
+  );
 }

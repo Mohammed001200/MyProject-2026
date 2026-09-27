@@ -33,6 +33,18 @@ describe("saved preferences", () => {
     } as Awaited<ReturnType<typeof requireViewer>>);
     database.$transaction.mockResolvedValue([]);
   });
+  it("returns Swedish confirmation for a saved Swedish preference", async () => {
+    const result = await savePreferences({ status: "idle" }, form());
+    expect(result.message).toBe("Inställningarna har sparats.");
+    expect(revalidatePath).toHaveBeenCalledWith("/workspace");
+  });
+  it("returns English confirmation when switching back", async () => {
+    const input = form();
+    input.set("preferredLocale", "en");
+    expect((await savePreferences({ status: "idle" }, input)).message).toBe(
+      "Preferences saved.",
+    );
+  });
   it("updates only the signed-in profile and leaves onboarding unchanged", async () => {
     const input = form();
     input.set("userId", "someone-else");

@@ -1,5 +1,9 @@
 "use server";
 
+import {
+  preferenceMessages,
+  resolveLocale,
+} from "@/features/localization/messages";
 import { revalidatePath } from "next/cache";
 import { onboardingSchema } from "@/features/onboarding/schema";
 import {
@@ -17,6 +21,13 @@ export async function savePreferences(
   _previous: SettingsState,
   form: FormData,
 ): Promise<SettingsState> {
+  const submittedLocale = form.get("preferredLocale");
+  const text =
+    preferenceMessages[
+      resolveLocale(
+        typeof submittedLocale === "string" ? submittedLocale : null,
+      )
+    ];
   try {
     const viewer = await requireViewer();
     const input = onboardingSchema.safeParse({
@@ -27,7 +38,7 @@ export async function savePreferences(
     if (!input.success)
       return {
         status: "error",
-        message: "Check your language, explanation style, and time zone.",
+        message: text.invalid,
       };
     const prisma = getPrisma();
     await prisma.$transaction([
@@ -48,12 +59,11 @@ export async function savePreferences(
     return {
       status: "error",
       message:
-        error instanceof UnauthenticatedError
-          ? "Your session has expired. Sign in again to save your preferences."
-          : "Your preferences could not be saved. Please try again.",
+        error instanceof UnauthenticatedError ? text.expired : text.failed,
     };
   }
+  revalidatePath("/workspace");
   revalidatePath("/workspace/settings");
   revalidatePath("/workspace/today");
-  return { status: "success", message: "Preferences saved." };
+  return { status: "success", message: text.saved };
 }

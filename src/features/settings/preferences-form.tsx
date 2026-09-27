@@ -1,6 +1,10 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import {
+  preferenceMessages,
+  resolveLocale,
+} from "@/features/localization/messages";
 import { savePreferences, type SettingsState } from "./actions";
 
 const initialState: SettingsState = { status: "idle" };
@@ -11,6 +15,7 @@ type Preferences = {
 };
 
 export function PreferencesForm({ preferences }: { preferences: Preferences }) {
+  const text = preferenceMessages[resolveLocale(preferences.preferredLocale)];
   const [values, setValues] = useState(preferences);
   const [state, action, pending] = useActionState(
     savePreferences,
@@ -19,10 +24,10 @@ export function PreferencesForm({ preferences }: { preferences: Preferences }) {
   const inputClass =
     "mt-2 min-h-11 w-full rounded-xl border border-line-strong bg-surface px-3 py-2 text-base text-ink";
   return (
-    <form action={action} aria-label="Preferences" className="mt-8">
+    <form action={action} aria-label={text.form} className="mt-8">
       <fieldset disabled={pending} className="grid gap-6 disabled:opacity-60">
         <label className="text-sm font-bold text-ink">
-          Preferred language
+          {text.language}
           <select
             name="preferredLocale"
             value={values.preferredLocale}
@@ -36,7 +41,7 @@ export function PreferencesForm({ preferences }: { preferences: Preferences }) {
           </select>
         </label>
         <label className="text-sm font-bold text-ink">
-          Explanation style
+          {text.style}
           <select
             name="explanationStyle"
             value={values.explanationStyle}
@@ -45,9 +50,9 @@ export function PreferencesForm({ preferences }: { preferences: Preferences }) {
             }
             className={inputClass}
           >
-            <option value="SIMPLE">Simple</option>
-            <option value="BALANCED">Balanced</option>
-            <option value="DETAILED">Detailed</option>
+            <option value="SIMPLE">{text.simple}</option>
+            <option value="BALANCED">{text.balanced}</option>
+            <option value="DETAILED">{text.detailed}</option>
           </select>
         </label>
         <div>
@@ -55,7 +60,7 @@ export function PreferencesForm({ preferences }: { preferences: Preferences }) {
             htmlFor="settings-timezone"
             className="text-sm font-bold text-ink"
           >
-            Time zone
+            {text.timezone}
           </label>
           <input
             id="settings-timezone"
@@ -74,14 +79,14 @@ export function PreferencesForm({ preferences }: { preferences: Preferences }) {
             id="timezone-help"
             className="mt-2 block text-xs font-normal text-ink-soft"
           >
-            For example, Europe/Stockholm or UTC.
+            {text.timezoneHelp}
           </span>
         </div>
         <button
           type="submit"
           className="min-h-11 justify-self-start rounded-full bg-brand-strong px-6 py-3 text-sm font-bold text-white"
         >
-          {pending ? "Saving…" : "Save preferences"}
+          {pending ? text.saving : text.save}
         </button>
       </fieldset>
       {state.message && (
