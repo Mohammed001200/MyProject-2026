@@ -1,3 +1,7 @@
+import {
+  deleteEmptyAccount,
+  reserveDeletionAttempt,
+} from "@/server/privacy/delete-account";
 import { revokeOtherSessions } from "@/server/auth/revoke-sessions";
 import { exportWorkspace, ExportTooLargeError } from "@/server/privacy/export";
 import * as chatProviders from "@/server/chat/provider";
@@ -1247,5 +1251,122 @@ describe("password recovery lifecycle", () => {
       vi.unstubAllGlobals();
       vi.unstubAllEnvs();
     }
+  });
+});
+
+describe("guarded account deletion", () => {
+  async function account() {
+    const user = await prisma.user.create({
+      data: {
+        name: "Deletion owner",
+        email: `delete-${randomUUID()}@example.test`,
+      },
+    });
+    const workspaceId = await ensurePersonalWorkspace(prisma, user);
+    const session = await prisma.session.create({
+      data: {
+        userId: user.id,
+        token: randomUUID(),
+        expiresAt: new Date(Date.now() + 60000),
+      },
+    });
+    const viewer = { session: { user, session }, workspaceId } as ViewerContext;
+    return { user, workspaceId, session, viewer };
+  }
+  it("blocks pending source files and preserves account data", async () => {
+    const a = await account();
+    await prisma.document.create({
+      data: {
+        workspaceId: a.workspaceId,
+        uploadedById: a.user.id,
+        title: "Pending cleanup",
+        originalFileName: "pending.pdf",
+        deletedAt: new Date(),
+      },
+    });
+    await expect(deleteEmptyAccount(a.viewer)).rejects.toMatchObject({
+      code: "DOCUMENTS_REMAIN",
+    });
+    expect(
+      await prisma.user.findUnique({ where: { id: a.user.id } }),
+    ).not.toBeNull();
+    expect(
+      await prisma.document.count({ where: { uploadedById: a.user.id } }),
+    ).toBe(1);
+  });
+  it("blocks shared workspaces and forged sessions", async () => {
+    const a = await account();
+    const b = await account();
+    await prisma.workspaceMember.create({
+      data: { workspaceId: a.workspaceId, userId: b.user.id, role: "MEMBER" },
+    });
+    await expect(deleteEmptyAccount(a.viewer)).rejects.toMatchObject({
+      code: "SHARED_WORKSPACE",
+    });
+    await expect(
+      deleteEmptyAccount({
+        ...a.viewer,
+        session: {
+          ...a.viewer.session,
+          session: { ...a.viewer.session.session, id: b.session.id },
+        },
+      }),
+    ).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
+    expect(
+      await prisma.user.count({
+        where: { id: { in: [a.user.id, b.user.id] } },
+      }),
+    ).toBe(2);
+  });
+  it("deletes only the empty private account and all its sessions/preferences/actions", async () => {
+    const a = await account();
+    const b = await account();
+    await prisma.actionItem.create({
+      data: {
+        workspaceId: a.workspaceId,
+        createdById: a.user.id,
+        title: "Private action",
+      },
+    });
+    await prisma.verification.create({
+      data: {
+        identifier: `reset-password:${randomUUID()}`,
+        value: a.user.id,
+        expiresAt: new Date(Date.now() + 60000),
+      },
+    });
+    await deleteEmptyAccount(a.viewer);
+    expect(
+      await prisma.user.findUnique({ where: { id: a.user.id } }),
+    ).toBeNull();
+    expect(
+      await prisma.workspace.findUnique({ where: { id: a.workspaceId } }),
+    ).toBeNull();
+    expect(await prisma.session.count({ where: { userId: a.user.id } })).toBe(
+      0,
+    );
+    expect(await prisma.profile.count({ where: { userId: a.user.id } })).toBe(
+      0,
+    );
+    expect(
+      await prisma.actionItem.count({ where: { workspaceId: a.workspaceId } }),
+    ).toBe(0);
+    expect(
+      await prisma.verification.count({ where: { value: a.user.id } }),
+    ).toBe(0);
+    expect(
+      await prisma.auditEvent.count({ where: { actorUserId: a.user.id } }),
+    ).toBe(0);
+    expect(
+      await prisma.user.findUnique({ where: { id: b.user.id } }),
+    ).not.toBeNull();
+  });
+  it("reserves at most five attempts per hour", async () => {
+    const a = await account();
+    const results = await Promise.allSettled(
+      Array.from({ length: 6 }, () => reserveDeletionAttempt(a.viewer)),
+    );
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(5);
+    expect(results.filter((r) => r.status === "rejected")).toHaveLength(1);
   });
 });

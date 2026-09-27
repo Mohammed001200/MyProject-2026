@@ -72,6 +72,8 @@ CIVORA Family, email ingestion, calendar providers, contract-change detection, s
 
 ## Progress log
 
+- **2026-09-27 — Guarded account deletion:** added confirmed current-password-verified deletion for accounts whose personal workspaces are private and have no remaining documents, including pending upload/deletion records. Deletes identity, sessions, profile, empty workspaces/actions, reset records and associated audit data in a serializable transaction. User deletion precedes workspace deletion so the restrictive uploader FK prevents concurrent uploads being orphaned. Shared-workspace accounts and pending file cleanup fail closed. Attempts are bounded to five per hour. Automatic bulk document deletion and backup erasure are not claimed.
+
 - **2026-09-27 — Password recovery:** added request/reset pages and an isolated Resend email adapter, with configuration gating, trusted-origin links, account-neutral responses, 30-minute single-use Better Auth tokens and session revocation. Tests exercise fake delivery, expiry, reuse, old/new credentials and missing configuration. Provider keys, verified sending domain, live delivery, token-URL log redaction and a durable mail retry queue remain pending; no real messages were sent.
 
 - **2026-09-27 — Password settings:** added current-password-verified password changes through the existing Better Auth endpoint, with confirmation validation, duplicate-submit protection, explicit other-session revocation and safe ambiguous-network-failure messaging. Browser checks exercise incorrect current password, old-password rejection and new-password login. Forgot-password email recovery remains pending; this feature does not require email or deployment configuration.

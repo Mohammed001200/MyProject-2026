@@ -1,3 +1,4 @@
+import { DeleteAccount } from "@/features/settings/delete-account";
 import { ChangePassword } from "@/features/settings/change-password";
 import { SessionSecurity } from "@/features/settings/session-security";
 import { ExportData } from "@/features/settings/export-data";
@@ -56,6 +57,7 @@ export default async function SettingsPage() {
         <ChangePassword />
         <SessionSecurity />
         <ExportData />
+        <DeleteAccount />
       </div>
     </main>
   );

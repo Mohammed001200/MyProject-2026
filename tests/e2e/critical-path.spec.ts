@@ -470,5 +470,22 @@ test.describe("authenticated critical path", () => {
     await page.getByLabel("Password", { exact: true }).fill(newPassword);
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/workspace$/);
+    await page.goto("/workspace/settings");
+    const deletion = page.getByRole("form", {
+      name: "Delete account",
+      exact: true,
+    });
+    await deletion
+      .getByLabel("Current password for deletion")
+      .fill(newPassword);
+    await deletion.getByLabel("Type DELETE to confirm").fill("DELETE");
+    await deletion
+      .getByRole("button", { name: "Delete my account permanently" })
+      .click();
+    await expect(page.getByRole("status")).toContainText(
+      "Your account and personal workspace have been deleted.",
+    );
+    await page.goto("/workspace");
+    await expect(page).toHaveURL(/\/auth\/sign-in$/);
   });
 });

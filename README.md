@@ -152,3 +152,14 @@ and no durable retry queue is implemented. Live deliverability remains unverifie
 Protect and redact reset-token URLs in host/proxy/analytics logs, disable email
 link tracking, and test real delivery before launch. Reset pages use no-referrer
 metadata; API responses are private/no-store. Email contents are currently English.
+
+## Account deletion
+
+Settings supports current-password-verified account deletion after all documents
+(including pending uploads and file cleanup) have been removed through the document
+flow. Shared-workspace accounts are refused. Deletion removes the private account,
+sessions, preferences, personal workspaces/actions, reset records and associated
+audit records in a serializable transaction; the retained completion event has no
+user identifier. It does not erase retained infrastructure backups. Attempts are
+bounded to five per hour. Bulk document deletion and backup reconciliation remain
+separate work; the existing worker retries pending source-file removal.
