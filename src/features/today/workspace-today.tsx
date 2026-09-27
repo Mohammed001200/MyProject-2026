@@ -25,11 +25,13 @@ type TodayAction = {
 
 export function WorkspaceToday({
   locale = "en",
+  focused = false,
   firstName,
   initialActions,
   status = "OPEN",
 }: {
   locale?: Locale;
+  focused?: boolean;
   firstName: string;
   initialActions: TodayAction[];
   status?: ActionStatus;
@@ -137,6 +139,13 @@ export function WorkspaceToday({
             ),
           )}
         </nav>
+        {focused && (
+          <p className="mt-4 text-sm text-ink-soft">
+            {locale === "sv"
+              ? "Visar vald åtgärd. Välj Öppna för att visa alla öppna åtgärder."
+              : "Showing the selected action. Choose Open to see all open actions."}
+          </p>
+        )}
         <p role="status" className="mt-4 text-sm text-ink-soft">
           {notice}
         </p>
@@ -164,6 +173,7 @@ export function WorkspaceToday({
             initialActions.map((action) => (
               <article
                 key={action.id}
+                id={`action-${action.id}`}
                 className="grid gap-5 py-6 sm:grid-cols-[1fr_auto] sm:items-center"
               >
                 <div>

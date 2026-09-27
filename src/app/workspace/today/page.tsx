@@ -12,12 +12,20 @@ const rank = { URGENT: 0, HIGH: 1, NORMAL: 2, LOW: 3 } as const;
 export default async function RealTodayPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string | string[] }>;
+  searchParams: Promise<{
+    status?: string | string[];
+    action?: string | string[];
+  }>;
 }) {
   if (inspectAuthEnvironment().state !== "ready") redirect("/auth/sign-in");
   const viewer = await getViewerContext();
   if (!viewer) redirect("/auth/sign-in");
-  const requestedStatus = (await searchParams).status;
+  const parameters = await searchParams;
+  const requestedStatus = parameters.status;
+  const focusedAction =
+    typeof parameters.action === "string"
+      ? parameters.action.slice(0, 128)
+      : undefined;
   const status =
     requestedStatus === "COMPLETED" || requestedStatus === "DISMISSED"
       ? requestedStatus
@@ -26,6 +34,7 @@ export default async function RealTodayPage({
     getPrisma().actionItem.findMany({
       where: {
         workspaceId: viewer.workspaceId,
+        ...(focusedAction ? { id: focusedAction } : {}),
         status,
         OR: [
           { sourceAnalysisId: null },
@@ -67,7 +76,8 @@ export default async function RealTodayPage({
   const firstName = viewer.session.user.name.trim().split(/\s+/)[0] ?? "there";
   return (
     <WorkspaceToday
-      key={`${status}-${resolveLocale(profile?.preferredLocale)}`}
+      key={`${status}-${focusedAction ?? ""}-${resolveLocale(profile?.preferredLocale)}`}
+      focused={Boolean(focusedAction)}
       locale={resolveLocale(profile?.preferredLocale)}
       firstName={firstName}
       initialActions={actions}

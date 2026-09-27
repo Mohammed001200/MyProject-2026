@@ -120,3 +120,7 @@ Today uses the saved English/Swedish locale for navigation, state-specific empty
 ### 2026-09-27 — Document and chat interface language
 
 Authenticated document library, upload, detail, chat selection and conversation screens now use the saved English/Swedish locale. Document status/category labels, dates, citations' page labels, confirmations and known chat errors are localized; source excerpts, saved answers and original filenames are preserved. Authenticated locale lookup is request-cached. Network failures in document loading now offer retry; chat no longer exposes raw network error messages and preserves the question. Provider-generated analysis warnings/failure details retain their stored language. Live provider activation remains pending; no Vercel changes.
+
+### 2026-09-27 — In-app reminders
+
+Adds an authenticated English/Swedish reminder page linked from the workspace. Open overdue/today/next-seven-calendar-day actions use the saved timezone; documents needing review appear separately. Completed/dismissed actions, hidden sources and unready analyses are excluded. Membership is rechecked before reads; results are bounded to 100 earliest deadlines and 20 recent review documents with a visible limit notice. Reminder links open a workspace-authorized focused Today view so lower-priority items remain reachable. This is an on-visit reminder feed, not email, push, scheduled delivery or an unread inbox; it sends no messages and requires no migration.

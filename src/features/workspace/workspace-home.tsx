@@ -143,6 +143,9 @@ export function WorkspaceHome({
               <ButtonLink href={"/workspace/ai" as Route} tone="quiet">
                 {text.ask}
               </ButtonLink>
+              <ButtonLink href={"/workspace/reminders" as Route} tone="quiet">
+                {language === "sv" ? "Påminnelser" : "Reminders"}
+              </ButtonLink>
               <ButtonLink href={"/workspace/settings" as Route} tone="quiet">
                 {text.settings}
               </ButtonLink>

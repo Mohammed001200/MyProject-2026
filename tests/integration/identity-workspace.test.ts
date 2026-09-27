@@ -1370,3 +1370,83 @@ describe("guarded account deletion", () => {
     expect(results.filter((r) => r.status === "rejected")).toHaveLength(1);
   });
 });
+
+describe("private in-app reminders", () => {
+  it("excludes finished actions, hidden documents and other workspaces", async () => {
+    const { readReminders } = await import("@/server/reminders/read");
+    const user = await prisma.user.create({
+      data: {
+        name: "Reminder owner",
+        email: `reminder-${randomUUID()}@example.test`,
+      },
+    });
+    const outsider = await prisma.user.create({
+      data: {
+        name: "Other owner",
+        email: `reminder-other-${randomUUID()}@example.test`,
+      },
+    });
+    const workspaceId = await ensurePersonalWorkspace(prisma, user);
+    const otherWorkspace = await ensurePersonalWorkspace(prisma, outsider);
+    const dueAt = new Date("2026-09-28T00:00:00Z");
+    const open = await prisma.actionItem.create({
+      data: {
+        workspaceId,
+        title: "Own deadline",
+        dueAt,
+        dueDateIsAllDay: true,
+      },
+    });
+    await prisma.actionItem.createMany({
+      data: [
+        { workspaceId, title: "Completed", dueAt, status: "COMPLETED" },
+        { workspaceId, title: "Dismissed", dueAt, status: "DISMISSED" },
+        { workspaceId: otherWorkspace, title: "Private other deadline", dueAt },
+      ],
+    });
+    const review = await prisma.document.create({
+      data: {
+        workspaceId,
+        uploadedById: user.id,
+        title: "Check this source",
+        originalFileName: "review.pdf",
+        status: "NEEDS_REVIEW",
+      },
+    });
+    const hidden = await prisma.document.create({
+      data: {
+        workspaceId,
+        uploadedById: user.id,
+        title: "Deleted source",
+        originalFileName: "hidden.pdf",
+        status: "NEEDS_REVIEW",
+        deletedAt: new Date(),
+      },
+    });
+    await prisma.actionItem.create({
+      data: {
+        workspaceId,
+        sourceDocumentId: hidden.id,
+        title: "Hidden deadline",
+        dueAt,
+      },
+    });
+    const result = await readReminders(
+      { userId: user.id },
+      workspaceId,
+      new Date("2026-09-27T12:00:00Z"),
+    );
+    expect(result.actions.map((item) => item.id)).toEqual([open.id]);
+    expect(result.reviews.map((item) => item.id)).toEqual([review.id]);
+    await expect(
+      readReminders({ userId: outsider.id }, workspaceId),
+    ).rejects.toBeInstanceOf(PrivateResourceNotFoundError);
+    await prisma.actionItem.update({
+      where: { id: open.id },
+      data: { status: "COMPLETED" },
+    });
+    expect(
+      (await readReminders({ userId: user.id }, workspaceId)).actions,
+    ).toHaveLength(0);
+  });
+});

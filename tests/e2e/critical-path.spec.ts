@@ -400,7 +400,7 @@ test.describe("authenticated critical path", () => {
       .fill("Call the housing office");
     await editor.getByLabel("Anteckningar").fill("Ask about the renewal date.");
     await editor.getByLabel("Prioritet").selectOption("HIGH");
-    await editor.getByLabel("Sista datum (valfritt)").fill("2099-10-15");
+    await editor.getByLabel("Sista datum (valfritt)").fill("2000-10-15");
     const created = page.waitForResponse(
       (r) =>
         r.url().endsWith("/api/actions") && r.request().method() === "POST",
@@ -412,7 +412,16 @@ test.describe("authenticated critical path", () => {
     });
     await expect(manual).toBeVisible();
     await page.reload();
-    await expect(manual.getByText("Senast 2099-10-15")).toBeVisible();
+    await expect(manual.getByText("Senast 2000-10-15")).toBeVisible();
+    await page.goto("/workspace/reminders");
+    await expect(
+      page.getByRole("heading", { name: "Försenade", exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("link", { name: "Call the housing office", exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/workspace\/today\?action=/);
+    await expect(manual).toBeVisible();
     await manual.getByRole("button", { name: "Redigera", exact: true }).click();
     const editForm = page.getByRole("form", { name: "Redigera åtgärd" });
     await editForm
@@ -426,7 +435,12 @@ test.describe("authenticated critical path", () => {
     await expect(edited).toBeVisible();
     await page.reload();
     await expect(edited).toBeVisible();
-    await expect(edited.getByText("Senast 2099-10-15")).toHaveCount(0);
+    await expect(edited.getByText("Senast 2000-10-15")).toHaveCount(0);
+    await page.goto("/workspace/reminders");
+    await expect(
+      page.getByRole("link", { name: "Email the housing office", exact: true }),
+    ).toHaveCount(0);
+    await page.goto("/workspace/today");
     await edited.getByRole("button", { name: "Slutför", exact: true }).click();
     await expect(edited).toBeHidden();
     await openActionView(page, "COMPLETED");
