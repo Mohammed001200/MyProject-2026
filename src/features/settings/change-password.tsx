@@ -1,9 +1,12 @@
 "use client";
+import type { Locale } from "@/features/localization/messages";
+import { securityMessages } from "@/features/localization/security-messages";
 
 import { useRef, useState, type FormEvent } from "react";
 import { authClient } from "@/lib/auth-client";
 
-export function ChangePassword() {
+export function ChangePassword({ locale = "en" }: { locale?: Locale }) {
+  const text = securityMessages[locale].password;
   const busy = useRef(false);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
@@ -18,15 +21,15 @@ export function ChangePassword() {
     const confirmation = String(form.get("confirmation") ?? "");
     setFailed(true);
     if (newPassword.length < 12 || newPassword.length > 128) {
-      setMessage("Use a new password between 12 and 128 characters.");
+      setMessage(text.length);
       return;
     }
     if (newPassword !== confirmation) {
-      setMessage("The new passwords do not match.");
+      setMessage(text.mismatch);
       return;
     }
     if (currentPassword === newPassword) {
-      setMessage("Choose a different password from your current one.");
+      setMessage(text.different);
       return;
     }
     busy.current = true;
@@ -41,22 +44,20 @@ export function ChangePassword() {
       if (result.error) {
         setMessage(
           result.error.status === 429
-            ? "Too many attempts. Wait a moment before trying again."
+            ? text.limited
             : result.error.status === 401
-              ? "Your session has expired. Please sign in again."
+              ? text.expired
               : result.error.code === "INVALID_PASSWORD"
-                ? "Your current password was not accepted."
-                : "The password change could not be confirmed. Try signing in with your new password before retrying.",
+                ? text.incorrect
+                : text.unknown,
         );
         return;
       }
       element.reset();
       setFailed(false);
-      setMessage("Password changed. Your other sessions have been signed out.");
+      setMessage(text.success);
     } catch {
-      setMessage(
-        "The connection was interrupted. The password may have changed; try signing in with your new password before retrying.",
-      );
+      setMessage(text.network);
     } finally {
       busy.current = false;
       setPending(false);
@@ -70,16 +71,13 @@ export function ChangePassword() {
       className="mt-12 border-t border-line pt-8"
     >
       <h2 id="password-heading" className="text-xl font-bold text-ink">
-        Change password
+        {text.heading}
       </h2>
-      <p className="mt-3 text-sm leading-6 text-ink-soft">
-        Use 12–128 characters. Changing your password signs out your other
-        sessions and keeps this browser signed in.
-      </p>
-      <form onSubmit={submit} aria-label="Change password" className="mt-5">
+      <p className="mt-3 text-sm leading-6 text-ink-soft">{text.description}</p>
+      <form onSubmit={submit} aria-label={text.heading} className="mt-5">
         <fieldset disabled={pending} className="grid gap-4 disabled:opacity-60">
           <label className="text-sm font-bold text-ink">
-            Current password
+            {text.current}
             <input
               className={inputClass}
               name="currentPassword"
@@ -90,7 +88,7 @@ export function ChangePassword() {
             />
           </label>
           <label className="text-sm font-bold text-ink">
-            New password
+            {text.newPassword}
             <input
               className={inputClass}
               name="newPassword"
@@ -102,7 +100,7 @@ export function ChangePassword() {
             />
           </label>
           <label className="text-sm font-bold text-ink">
-            Confirm new password
+            {text.confirm}
             <input
               className={inputClass}
               name="confirmation"
@@ -117,7 +115,7 @@ export function ChangePassword() {
             type="submit"
             className="min-h-11 justify-self-start rounded-full bg-brand-strong px-6 py-3 text-sm font-bold text-white"
           >
-            {pending ? "Changing password…" : "Change password"}
+            {pending ? text.pending : text.heading}
           </button>
         </fieldset>
         {message && (

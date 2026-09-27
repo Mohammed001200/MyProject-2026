@@ -1,4 +1,6 @@
 "use server";
+import { resolveLocale } from "@/features/localization/messages";
+import { securityMessages } from "@/features/localization/security-messages";
 import {
   requireViewer,
   UnauthenticatedError,
@@ -10,28 +12,28 @@ export async function signOutOtherDevices(
   _previous: SettingsState,
   form: FormData,
 ): Promise<SettingsState> {
+  const language = form.get("locale");
+  const text =
+    securityMessages[
+      resolveLocale(typeof language === "string" ? language : null)
+    ].sessions;
   try {
     const viewer = await requireViewer();
     if (form.get("confirm") !== "yes")
       return {
         status: "error",
-        message: "Confirm that you want to sign out your other devices.",
+        message: text.required,
       };
     const count = await revokeOtherSessions(viewer);
     return {
       status: "success",
-      message:
-        count === 0
-          ? "No other sessions were active."
-          : "Your other sessions have been signed out. This session is still active.",
+      message: count === 0 ? text.empty : text.success,
     };
   } catch (error) {
     return {
       status: "error",
       message:
-        error instanceof UnauthenticatedError
-          ? "Your session has expired. Please sign in again."
-          : "Other sessions could not be signed out. Please try again.",
+        error instanceof UnauthenticatedError ? text.expired : text.failed,
     };
   }
 }

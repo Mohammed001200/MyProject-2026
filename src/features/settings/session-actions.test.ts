@@ -27,6 +27,14 @@ describe("sign out other devices", () => {
       {} as Awaited<ReturnType<typeof requireViewer>>,
     );
   });
+  it("localizes feedback without changing the server identity", async () => {
+    const input = confirmed();
+    input.set("locale", "sv");
+    vi.mocked(revokeOtherSessions).mockResolvedValue(1);
+    const result = await signOutOtherDevices(initial, input);
+    expect(result.message).toContain("Dina andra sessioner har loggats ut.");
+    expect(revokeOtherSessions).toHaveBeenCalledWith(await requireViewer());
+  });
   it("requires a session", async () => {
     vi.mocked(requireViewer).mockRejectedValue(new UnauthenticatedError());
     expect((await signOutOtherDevices(initial, confirmed())).status).toBe(

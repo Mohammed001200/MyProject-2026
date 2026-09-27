@@ -56,12 +56,10 @@ export default async function SettingsPage() {
             timezone: profile.timezone,
           }}
         />
-        <div lang="en">
-          <ChangePassword />
-          <SessionSecurity />
-          <ExportData />
-          <DeleteAccount />
-        </div>
+        <ChangePassword locale={locale} />
+        <SessionSecurity locale={locale} />
+        <ExportData locale={locale} />
+        <DeleteAccount locale={locale} />
       </div>
     </main>
   );

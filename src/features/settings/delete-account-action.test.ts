@@ -43,6 +43,18 @@ beforeEach(() => {
   );
 });
 describe("account deletion action", () => {
+  it("still requires DELETE confirmation in Swedish", async () => {
+    const input = confirmed();
+    input.set("locale", "sv");
+    input.set("confirmation", "RADERA");
+    const result = await deleteAccount(initial, input);
+    expect(result.status).toBe("error");
+    expect(result.message).toBe(
+      "Ange ditt nuvarande lösenord och skriv DELETE för att bekräfta.",
+    );
+    expect(verify).not.toHaveBeenCalled();
+    expect(deleteEmptyAccount).not.toHaveBeenCalled();
+  });
   it("requires authentication", async () => {
     vi.mocked(requireViewer).mockRejectedValue(new UnauthenticatedError());
     expect((await deleteAccount(initial, confirmed())).status).toBe("error");

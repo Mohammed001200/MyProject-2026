@@ -27,6 +27,23 @@ function fill(confirm = "new-long-password") {
   });
 }
 describe("password settings", () => {
+  it("shows Swedish validation before sending a mismatched password", async () => {
+    render(<ChangePassword locale="sv" />);
+    fireEvent.change(screen.getByLabelText("Nuvarande lösenord"), {
+      target: { value: "old-long-password" },
+    });
+    fireEvent.change(screen.getByLabelText("Nytt lösenord", { exact: true }), {
+      target: { value: "new-long-password" },
+    });
+    fireEvent.change(screen.getByLabelText("Bekräfta nytt lösenord"), {
+      target: { value: "different-password" },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Byt lösenord" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "De nya lösenorden stämmer inte överens.",
+    );
+    expect(change).not.toHaveBeenCalled();
+  });
   it("rejects mismatched confirmation without a request", async () => {
     render(<ChangePassword />);
     fill("different-password");

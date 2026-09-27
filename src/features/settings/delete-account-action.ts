@@ -1,4 +1,6 @@
 "use server";
+import { resolveLocale } from "@/features/localization/messages";
+import { securityMessages } from "@/features/localization/security-messages";
 import { headers } from "next/headers";
 import { getAuth } from "@/server/auth/auth";
 import {
@@ -16,6 +18,11 @@ export async function deleteAccount(
   _previous: SettingsState,
   form: FormData,
 ): Promise<SettingsState> {
+  const language = form.get("locale");
+  const text =
+    securityMessages[
+      resolveLocale(typeof language === "string" ? language : null)
+    ].deletion;
   try {
     const viewer = await requireViewer();
     const password = form.get("password");
@@ -27,7 +34,7 @@ export async function deleteAccount(
     )
       return {
         status: "error",
-        message: "Enter your current password and type DELETE to confirm.",
+        message: text.required,
       };
     await reserveDeletionAttempt(viewer);
     try {
@@ -38,15 +45,13 @@ export async function deleteAccount(
     } catch {
       return {
         status: "error",
-        message:
-          "Your password could not be verified. Check it or sign in again.",
+        message: text.incorrect,
       };
     }
     await deleteEmptyAccount(viewer);
     return {
       status: "success",
-      message:
-        "Your account and personal workspace have been deleted. You are signed out.",
+      message: text.success,
     };
   } catch (error) {
     if (error instanceof AccountDeletionBlockedError)
@@ -54,17 +59,15 @@ export async function deleteAccount(
         status: "error",
         message:
           error.code === "DOCUMENTS_REMAIN"
-            ? "Delete your documents first. If file deletion is still pending, wait until cleanup finishes and try again."
+            ? text.documentsRemain
             : error.code === "SHARED_WORKSPACE"
-              ? "This account belongs to a shared workspace. Account deletion is not yet supported for shared workspaces."
-              : "Too many attempts. Wait one hour before trying again.",
+              ? text.shared
+              : text.limited,
       };
     return {
       status: "error",
       message:
-        error instanceof UnauthenticatedError
-          ? "Your session has expired. Sign in again."
-          : "Deletion could not be confirmed. Try signing in again before retrying.",
+        error instanceof UnauthenticatedError ? text.expired : text.unknown,
     };
   }
 }

@@ -91,7 +91,7 @@ test.describe("authenticated critical path", () => {
 
     const downloadPromise = page.waitForEvent("download");
     await page
-      .getByRole("button", { name: "Download workspace data", exact: true })
+      .getByRole("button", { name: "Ladda ner arbetsytans data", exact: true })
       .click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBe("civora-workspace-export.json");
@@ -111,15 +111,15 @@ test.describe("authenticated critical path", () => {
       await secondPage.getByRole("button", { name: "Sign in" }).click();
       await expect(secondPage).toHaveURL(/\/workspace$/);
       const security = page.getByRole("form", {
-        name: "Sign out other devices",
+        name: "Logga ut andra enheter",
         exact: true,
       });
-      await security.getByLabel("Sign out all my other sessions").check();
+      await security.getByLabel("Logga ut alla mina andra sessioner").check();
       await security
-        .getByRole("button", { name: "Sign out other devices", exact: true })
+        .getByRole("button", { name: "Logga ut andra enheter", exact: true })
         .click();
       await expect(security.getByRole("status")).toContainText(
-        "This session is still active.",
+        "Den här sessionen är fortfarande aktiv.",
       );
       await secondPage.goto("/workspace/settings");
       await expect(secondPage).toHaveURL(/\/auth\/sign-in/);
@@ -436,31 +436,31 @@ test.describe("authenticated critical path", () => {
 
     await page.goto("/workspace/settings");
     const passwordForm = page.getByRole("form", {
-      name: "Change password",
+      name: "Byt lösenord",
       exact: true,
     });
     const newPassword = "updated-correct-horse-battery-staple";
     await passwordForm
-      .getByLabel("Current password", { exact: true })
+      .getByLabel("Nuvarande lösenord", { exact: true })
       .fill("wrong-current-password");
     await passwordForm
-      .getByLabel("New password", { exact: true })
+      .getByLabel("Nytt lösenord", { exact: true })
       .fill(newPassword);
-    await passwordForm.getByLabel("Confirm new password").fill(newPassword);
+    await passwordForm.getByLabel("Bekräfta nytt lösenord").fill(newPassword);
     await passwordForm
-      .getByRole("button", { name: "Change password", exact: true })
+      .getByRole("button", { name: "Byt lösenord", exact: true })
       .click();
     await expect(passwordForm.getByRole("alert")).toHaveText(
-      "Your current password was not accepted.",
+      "Ditt nuvarande lösenord godkändes inte.",
     );
     await passwordForm
-      .getByLabel("Current password", { exact: true })
+      .getByLabel("Nuvarande lösenord", { exact: true })
       .fill(password);
     await passwordForm
-      .getByRole("button", { name: "Change password", exact: true })
+      .getByRole("button", { name: "Byt lösenord", exact: true })
       .click();
     await expect(passwordForm.getByRole("status")).toContainText(
-      "Password changed.",
+      "Lösenordet har ändrats.",
     );
     await page.reload();
     await expect(page).toHaveURL(/\/workspace\/settings$/);
@@ -483,18 +483,18 @@ test.describe("authenticated critical path", () => {
     await expect(page).toHaveURL(/\/workspace$/);
     await page.goto("/workspace/settings");
     const deletion = page.getByRole("form", {
-      name: "Delete account",
+      name: "Radera konto",
       exact: true,
     });
     await deletion
-      .getByLabel("Current password for deletion")
+      .getByLabel("Nuvarande lösenord för radering")
       .fill(newPassword);
-    await deletion.getByLabel("Type DELETE to confirm").fill("DELETE");
+    await deletion.getByLabel("Skriv DELETE för att bekräfta").fill("DELETE");
     await deletion
-      .getByRole("button", { name: "Delete my account permanently" })
+      .getByRole("button", { name: "Radera mitt konto permanent" })
       .click();
     await expect(page.getByRole("status")).toContainText(
-      "Your account and personal workspace have been deleted.",
+      "Ditt konto och din personliga arbetsyta har raderats.",
     );
     await page.goto("/workspace");
     await expect(page).toHaveURL(/\/auth\/sign-in$/);

@@ -108,3 +108,7 @@ CIVORA Family, email ingestion, calendar providers, contract-change detection, s
 ### 2026-09-27 — Saved language reaches the interface
 
 Workspace home and preference settings now use the authenticated profile's English/Swedish choice, including preference-action feedback, sign-out labels and theme accessibility labels. Unsupported locale values fall back to English. Language changes revalidate the workspace; document content is never translated or rewritten by saving a preference. Localized main regions declare their language. Account-security sections remain explicitly English; document, Today, chat and auth interface localization is still pending. Desktop/mobile coverage now checks saving Swedish, reload persistence and Swedish workspace navigation. No deployment or provider changes.
+
+### 2026-09-27 — Security settings in Swedish
+
+Password changes, session revocation, data export and account deletion now follow the saved interface language, including confirmations, constraints, progress, errors and success messages. The irreversible confirmation remains the literal DELETE in both languages. Locale inputs affect display only; authentication, ownership and mutation guards remain server-enforced. English is the fallback. Unit coverage preserves English behavior and adds Swedish validation; the authenticated mobile/desktop journey now exercises security settings in Swedish. Document, Today, chat and authentication screens still require interface localization. No deployment or live provider changes.

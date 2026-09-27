@@ -1,7 +1,10 @@
 "use client";
+import type { Locale } from "@/features/localization/messages";
+import { securityMessages } from "@/features/localization/security-messages";
 import { useRef, useState } from "react";
 
-export function ExportData() {
+export function ExportData({ locale = "en" }: { locale?: Locale }) {
+  const text = securityMessages[locale].exportData;
   const busy = useRef(false);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
@@ -20,10 +23,10 @@ export function ExportData() {
         setFailed(true);
         setMessage(
           response.status === 401
-            ? "Please sign in again to download your data."
+            ? text.expired
             : response.status === 413
-              ? "This workspace exceeds the current export limit. No partial file was downloaded. You can still download original files from each document."
-              : "Your export could not be created. Please try again.",
+              ? text.tooLarge
+              : text.failed,
         );
         return;
       }
@@ -35,12 +38,10 @@ export function ExportData() {
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      setMessage("Your export is ready. Keep the downloaded file private.");
+      setMessage(text.success);
     } catch {
       setFailed(true);
-      setMessage(
-        "The download could not finish. Check your connection and try again.",
-      );
+      setMessage(text.network);
     } finally {
       busy.current = false;
       setPending(false);
@@ -52,25 +53,17 @@ export function ExportData() {
       className="mt-12 border-t border-line pt-8"
     >
       <h2 id="export-heading" className="text-xl font-bold text-ink">
-        Download your workspace data
+        {text.heading}
       </h2>
-      <p className="mt-3 text-sm leading-6 text-ink-soft">
-        Get a JSON file with your account details, preferences, personal
-        workspace documents and their latest analyses, actions, and your private
-        chat history. Original files can be downloaded from each document.
-      </p>
-      <p className="mt-2 text-xs leading-5 text-ink-soft">
-        Older analyses, operational audit records and other workspaces are not
-        included. This first version supports up to 500 documents, 500 actions,
-        500 chat turns and a 3 MB export.
-      </p>
+      <p className="mt-3 text-sm leading-6 text-ink-soft">{text.description}</p>
+      <p className="mt-2 text-xs leading-5 text-ink-soft">{text.limits}</p>
       <button
         type="button"
         disabled={pending}
         onClick={download}
         className="mt-4 min-h-11 rounded-full border border-line-strong px-6 py-3 text-sm font-bold text-ink disabled:opacity-60"
       >
-        {pending ? "Preparing export…" : "Download workspace data"}
+        {pending ? text.pending : text.submit}
       </button>
       {message && (
         <p role={failed ? "alert" : "status"} className="mt-3 text-sm text-ink">

@@ -1,10 +1,13 @@
 "use client";
+import type { Locale } from "@/features/localization/messages";
+import { securityMessages } from "@/features/localization/security-messages";
 import { useActionState } from "react";
 import Link from "next/link";
 import { deleteAccount } from "./delete-account-action";
 import type { SettingsState } from "./actions";
 const initial: SettingsState = { status: "idle" };
-export function DeleteAccount() {
+export function DeleteAccount({ locale = "en" }: { locale?: Locale }) {
+  const text = securityMessages[locale].deletion;
   const [state, action, pending] = useActionState(deleteAccount, initial);
   if (state.status === "success")
     return (
@@ -16,7 +19,7 @@ export function DeleteAccount() {
           href="/"
           className="mt-3 inline-flex min-h-11 items-center font-bold text-brand"
         >
-          Return home
+          {text.home}
         </Link>
       </section>
     );
@@ -26,29 +29,21 @@ export function DeleteAccount() {
       className="mt-12 border-t border-line pt-8"
     >
       <h2 id="delete-account-heading" className="text-xl font-bold text-ink">
-        Delete account
+        {text.heading}
       </h2>
-      <p className="mt-3 text-sm leading-6 text-ink-soft">
-        This permanently deletes your account, preferences, personal workspace
-        and remaining actions. Download your workspace data first if you want to
-        keep a copy.
-      </p>
-      <p className="mt-3 text-sm leading-6 text-ink-soft">
-        First delete all documents from your library and wait for any pending
-        file deletions to finish. Accounts in shared workspaces cannot be
-        deleted here yet. Retained infrastructure backups follow the configured
-        retention policy.
-      </p>
+      <p className="mt-3 text-sm leading-6 text-ink-soft">{text.description}</p>
+      <p className="mt-3 text-sm leading-6 text-ink-soft">{text.limits}</p>
       <Link
         href="/workspace/documents"
         className="mt-2 inline-flex min-h-11 items-center text-sm font-bold text-brand"
       >
-        Open document library
+        {text.documents}
       </Link>
-      <form action={action} aria-label="Delete account" className="mt-4">
+      <form action={action} aria-label={text.heading} className="mt-4">
+        <input type="hidden" name="locale" value={locale} />
         <fieldset disabled={pending} className="grid gap-4 disabled:opacity-60">
           <label className="text-sm font-bold text-ink">
-            Current password for deletion
+            {text.password}
             <input
               type="password"
               name="password"
@@ -59,7 +54,7 @@ export function DeleteAccount() {
             />
           </label>
           <label className="text-sm font-bold text-ink">
-            Type DELETE to confirm
+            {text.confirm}
             <input
               type="text"
               name="confirmation"
@@ -74,7 +69,7 @@ export function DeleteAccount() {
             type="submit"
             className="min-h-11 justify-self-start rounded-full border border-danger px-6 py-3 text-sm font-bold text-danger"
           >
-            {pending ? "Deleting account…" : "Delete my account permanently"}
+            {pending ? text.pending : text.submit}
           </button>
         </fieldset>
         {state.message && (
