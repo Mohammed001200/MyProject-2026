@@ -1,0 +1,19 @@
+import { AttentionList } from "@/features/today/attention-list";
+
+export default function ActionsPage() {
+  return (
+    <div className="mx-auto max-w-[980px] px-4 pb-28 pt-8 sm:px-7 sm:pt-12 lg:px-10 lg:pb-16">
+      <p className="eyebrow text-brand">Actions</p>
+      <h1 className="display-type mt-3 text-4xl font-medium tracking-[-0.035em] text-ink sm:text-5xl">
+        A short list you can trust.
+      </h1>
+      <p className="mt-3 max-w-2xl text-sm leading-6 text-ink-soft">
+        Complete or reopen these fictional preview actions. Production
+        persistence arrives with the workspace data layer.
+      </p>
+      <div className="mt-9">
+        <AttentionList />
+      </div>
+    </div>
+  );
+}

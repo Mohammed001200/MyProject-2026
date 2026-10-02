@@ -1,0 +1,39 @@
+import { defineConfig, devices } from "@playwright/test";
+
+const databaseBackedE2E = process.env.CIVORA_E2E_DATABASE === "true";
+
+export default defineConfig({
+  testDir: "./tests/e2e",
+  fullyParallel: !databaseBackedE2E,
+  workers: databaseBackedE2E ? 1 : 2,
+  forbidOnly: true,
+  retries: databaseBackedE2E ? 0 : process.env.CI ? 2 : 0,
+  reporter: process.env.CI ? "github" : "list",
+  use: {
+    baseURL: "http://127.0.0.1:3000",
+    channel: process.env.CI ? undefined : "msedge",
+    trace: "retain-on-failure",
+  },
+  projects: [
+    {
+      name: "desktop-edge",
+      use: {
+        ...devices["Desktop Chrome"],
+        channel: process.env.CI ? undefined : "msedge",
+      },
+    },
+    {
+      name: "mobile-edge",
+      use: {
+        ...devices["Pixel 7"],
+        channel: process.env.CI ? undefined : "msedge",
+      },
+    },
+  ],
+  webServer: {
+    command: "corepack pnpm start",
+    url: "http://127.0.0.1:3000",
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+  },
+});
