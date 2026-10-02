@@ -1455,7 +1455,7 @@ describe("private in-app reminders", () => {
     ).rejects.toBeInstanceOf(PrivateResourceNotFoundError);
     await prisma.actionItem.update({
       where: { id: open.id },
-      data: { status: "COMPLETED" },
+      data: { status: "COMPLETED", completedAt: new Date() },
     });
     expect(
       (await readReminders({ userId: user.id }, workspaceId)).actions,
