@@ -1399,8 +1399,20 @@ describe("private in-app reminders", () => {
     });
     await prisma.actionItem.createMany({
       data: [
-        { workspaceId, title: "Completed", dueAt, status: "COMPLETED" },
-        { workspaceId, title: "Dismissed", dueAt, status: "DISMISSED" },
+        {
+          workspaceId,
+          title: "Completed",
+          dueAt,
+          status: "COMPLETED",
+          completedAt: new Date(),
+        },
+        {
+          workspaceId,
+          title: "Dismissed",
+          dueAt,
+          status: "DISMISSED",
+          dismissedAt: new Date(),
+        },
         { workspaceId: otherWorkspace, title: "Private other deadline", dueAt },
       ],
     });
